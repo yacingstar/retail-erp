@@ -11,10 +11,10 @@ _Last updated: 2026-09-27_
 
 | | |
 |---|---|
-| **Current phase** | Step 1 (project setup) ✅ done → **Step 2 (Entities, JPA, Flyway) next** |
-| **Last thing done** | Fixed the Spring Boot parent version, built and ran the skeleton (`/actuator/health` → UP), `git init`, added `CONTEXT.md` + `CLAUDE.md`, pushed `main` to GitHub (`origin`, HTTPS) |
-| **Pending / open** | Nothing |
-| **Next step** | PostgreSQL via Docker Compose + connect Spring to it (explain how `DataSource` auto-configuration works, then Flyway). Plan: the **user writes `docker-compose.yml`**, Claude reviews it. |
+| **Current phase** | **Step 2 (Entities, JPA, Flyway)**, sub-step **2.1: PostgreSQL in Docker Compose** |
+| **Last thing done** | Checked that the Docker engine runs (0 images/containers/volumes) and where Docker stores data (D:, see §8). Gave the user the compose-file task + skeleton. |
+| **Pending / open** | **The user is writing `retail-erp/compose.yaml`** (the file doesn't exist yet). Claude reviews it when the user says "done". See §12 for the task spec. |
+| **Next step** | After the review: `docker compose up -d`, check the container is healthy, connect with `psql` inside the container. Then 2.2: add Spring Data JPA + PostgreSQL driver, set `spring.datasource.*`, and explain `DataSource` auto-configuration (HikariCP). Then Flyway. |
 
 ---
 
@@ -68,6 +68,9 @@ The user is here to **LEARN**, not just to get code.
 | `JAVA_HOME` | Set **per terminal** only (system default left at JDK 17) | Don't break the user's other JDK 17 projects |
 | Maven | Always use the wrapper `./mvnw` (or `.\mvnw.cmd`), never a global `mvn` | Everyone builds with the same Maven version (3.9.16) |
 | Security starter | **Not added yet**, comes in step 4 | Adding it locks all endpoints (401s) and gets in the way of learning steps 2–3 |
+| Compose file location | **`retail-erp/compose.yaml`** (repo root) | The DB is infrastructure for the whole project; other services (pgAdmin, etc.) can go there later. _Claude's recommendation, applied as the default; the user didn't object._ |
+| How Spring finds the DB | **Manual** (option A): user runs `docker compose up -d`; connection details in `application.properties` | For learning: see every piece. The alternative, `spring-boot-docker-compose` (Boot auto-starts compose and wires the connection), hides the magic; maybe later. _Also the default, not explicitly chosen._ |
+| PostgreSQL version | **`postgres:17`** (pinned major) | Never `latest`. 18's image changed the data directory layout (`PGDATA` under `/var/lib/postgresql/18/...`), and most tutorials use the 17 layout (`/var/lib/postgresql/data`). |
 
 ---
 
@@ -112,7 +115,10 @@ retail-erp/                      ← git root
   - `C:\Program Files\Java\jdk-17` ← **system `JAVA_HOME` points here (wrong for this project)**
   - `C:\Program Files\Eclipse Adoptium\jdk-21.0.12.101-hotspot` ← **use this one**
   - `C:\Program Files\Java\jdk-24`
-- **Docker:** 28.3.2 (installed; not used yet)
+- **Docker Desktop:** engine 28.3.2, Compose v2.39 (use `docker compose`, not the old `docker-compose`).
+  - **Docker Desktop must be started manually** (Start menu, wait for "Engine running"). If it's not running, commands fail with `open //./pipe/dockerDesktopLinuxEngine: The system cannot find the file specified`.
+  - Runs on WSL2. **All images, containers and volumes live in `D:\Docker\wsl\DockerDesktopWSL\disk\docker_data.vhdx`** (set via `CustomWslDistroDir` in `%APPDATA%\Docker\settings-store.json` / Settings → Resources → Advanced). Named volumes are inside that file: not visible in Explorer; use `docker volume ls/rm`. The `.vhdx` grows but never shrinks on its own.
+- **Disk space:** **C: is ~92% full (~11 GB free)**; D: has ~812 GB free. Keep big things on D:. The Maven cache `C:\Users\yacine.laib.ahmed\.m2\repository` is on C: (can be moved to D: via `~/.m2/settings.xml` `<localRepository>` if needed).
 - **Git:** 2.53 (Windows), identity `Ahmed Yacine <67834851+yacingstar@users.noreply.github.com>`, `credential.helper=manager`
 - **GitHub CLI (`gh`):** not installed
 - **SSH keys:** none (`~/.ssh` only has `known_hosts` with github.com)
@@ -142,6 +148,7 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
 3. **VS Code Java extension vs. Maven race:** when `pom.xml` changes, VS Code re-imports and rebuilds `target/classes` **at the same time** as a command-line Maven build. The result was "Unable to find main class" and an empty 22-byte jar. Fix: let the IDE finish, then rerun (or use `clean package`).
 4. **Line endings:** Git on Windows warns "LF will be replaced by CRLF". Harmless. `mvnw` must stay **LF** (guaranteed by `.gitattributes`), or it breaks on Linux/CI. `mvnw` is also marked executable in git (`git update-index --chmod=+x`).
 5. **GitHub repo creation:** create it **empty** (no README/.gitignore/license), or the first push is rejected because the histories are unrelated. Never "fix" that with `--force`.
+6. **Pushing from Claude's shell:** the first push from Claude's (non-interactive) shell failed with "Invalid username or token": Git Credential Manager needs a browser login, which only the user can do. The user did the first push themselves. If a push from Claude fails with an auth error, ask the user to run `git push`. If there's still no login window, remove the stale credential: `git credential-manager github logout yacingstar` (or remove `git:https://github.com` in Windows Credential Manager).
 
 ---
 
@@ -165,4 +172,19 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
 - Fixed the parent version; built successfully (1 test passing, 23 MB fat jar); ran the jar: Tomcat auto-started on 8080, `/actuator/health` UP, unknown path → default JSON 404.
 - `git init -b main` at `retail-erp/`, first commit `fa2bbb7`.
 - The user created the GitHub repo `yacingstar/retail-erp`; switched the remote from SSH to HTTPS (no SSH key).
-- Created this `CONTEXT.md` + `CLAUDE.md` (auto-load), committed, and pushed `main` to GitHub.
+- Created this `CONTEXT.md` + `CLAUDE.md` (auto-load), committed. The push from Claude's shell failed (auth); **the user pushed** successfully (`origin/main` = `1788e9f`).
+- Started step 2.1: explained why PostgreSQL runs in Docker Compose; applied the defaults (compose at the root, manual connection, `postgres:17`). The user started Docker Desktop; found that Docker data lives on D:. Gave the user the `compose.yaml` task (see §12).
+
+---
+
+## 12. Current task spec: `retail-erp/compose.yaml` (written by the user, reviewed by Claude)
+
+Requirements given to the user:
+1. One service `postgres`.
+2. Pinned image `postgres:17`.
+3. `POSTGRES_DB` (e.g. `retail_erp`), `POSTGRES_USER`, `POSTGRES_PASSWORD`.
+4. Port mapping `"5432:5432"` (host:container), **quoted**.
+5. **Named volume** at `/var/lib/postgresql/data` (declared under the top-level `volumes:`), **not** a `./folder` bind mount.
+6. Bonus: `healthcheck` with `pg_isready -U <user> -d <db>`.
+
+Pitfalls the user was warned about (check for these in the review): tabs/bad indentation; an unquoted port mapping (YAML 1.1 base-60 trap); a bind mount instead of a named volume; `POSTGRES_*` vars only apply on the **first** start (empty volume), so changing the password later needs `docker compose down -v`; the obsolete `version:` key; never commit real secrets (a dev-only password is OK here; proper env-var handling comes with JWT).
