@@ -47,6 +47,9 @@ public class Invoice extends AuditedEntity {
     @Column(nullable = false, precision = 14, scale = 2, updatable = false)
     private BigDecimal subtotal;
 
+    @Column(name = "discount_total", nullable = false, precision = 14, scale = 2, updatable = false)
+    private BigDecimal discountTotal;
+
     @Column(name = "tax_total", nullable = false, precision = 14, scale = 2, updatable = false)
     private BigDecimal taxTotal;
 
@@ -66,6 +69,7 @@ public class Invoice extends AuditedEntity {
         this.issueDate = issueDate;
         this.dueDate = dueDate;
         this.subtotal = order.getSubtotal();
+        this.discountTotal = order.getDiscountTotal();
         this.taxTotal = order.getTaxTotal();
         this.total = order.getTotal();
     }
@@ -118,6 +122,10 @@ public class Invoice extends AuditedEntity {
 
     public BigDecimal getSubtotal() {
         return subtotal;
+    }
+
+    public BigDecimal getDiscountTotal() {
+        return discountTotal;
     }
 
     public BigDecimal getTaxTotal() {

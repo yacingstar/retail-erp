@@ -55,6 +55,12 @@ public class SalesOrder extends AuditedEntity {
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal subtotal = BigDecimal.ZERO;
 
+    @Column(name = "discount_percent", nullable = false, precision = 5, scale = 2)
+    private BigDecimal discountPercent = BigDecimal.ZERO;
+
+    @Column(name = "discount_total", nullable = false, precision = 14, scale = 2)
+    private BigDecimal discountTotal = BigDecimal.ZERO;
+
     @Column(name = "tax_total", nullable = false, precision = 14, scale = 2)
     private BigDecimal taxTotal = BigDecimal.ZERO;
 
@@ -64,6 +70,10 @@ public class SalesOrder extends AuditedEntity {
     @Column(name = "created_by", updatable = false)
     private UUID createdBy;
 
+    /** Set for sales made at the Point of Sale (plain id, so the sales module doesn't depend on the pos module). */
+    @Column(name = "pos_shift_id", updatable = false)
+    private UUID posShiftId;
+
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("lineNo")
     private List<SalesOrderLine> lines = new ArrayList<>();
@@ -71,30 +81,37 @@ public class SalesOrder extends AuditedEntity {
     protected SalesOrder() {
     }
 
-    public SalesOrder(String number, UUID createdBy) {
+    public SalesOrder(String number, UUID createdBy, UUID posShiftId) {
         this.number = number;
         this.createdBy = createdBy;
+        this.posShiftId = posShiftId;
     }
 
-    public void edit(Customer customer, Warehouse warehouse, LocalDate orderDate, String notes, List<SalesOrderLine> newLines) {
+    /** Lines must already carry {@code discountPercent} (see SalesOrderLine). */
+    public void edit(Customer customer, Warehouse warehouse, LocalDate orderDate, String notes, BigDecimal discountPercent,
+            List<SalesOrderLine> newLines) {
         requireStatus(SalesOrderStatus.DRAFT, "edit");
         this.customer = customer;
         this.warehouse = warehouse;
         this.orderDate = orderDate;
         this.notes = notes;
+        this.discountPercent = discountPercent;
         this.lines.clear();
         int lineNo = 1;
         BigDecimal sub = BigDecimal.ZERO;
+        BigDecimal discount = BigDecimal.ZERO;
         BigDecimal tax = BigDecimal.ZERO;
         for (SalesOrderLine line : newLines) {
             line.attach(this, lineNo++);
             this.lines.add(line);
             sub = sub.add(line.getLineSubtotal());
+            discount = discount.add(line.getLineDiscount());
             tax = tax.add(line.getLineTax());
         }
         this.subtotal = sub;
+        this.discountTotal = discount;
         this.taxTotal = tax;
-        this.total = sub.add(tax);
+        this.total = sub.subtract(discount).add(tax);
     }
 
     public void confirm() {
@@ -146,6 +163,18 @@ public class SalesOrder extends AuditedEntity {
 
     public BigDecimal getSubtotal() {
         return subtotal;
+    }
+
+    public BigDecimal getDiscountPercent() {
+        return discountPercent;
+    }
+
+    public BigDecimal getDiscountTotal() {
+        return discountTotal;
+    }
+
+    public UUID getPosShiftId() {
+        return posShiftId;
     }
 
     public BigDecimal getTaxTotal() {

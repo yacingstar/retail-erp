@@ -13,7 +13,10 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
-/** Prices and tax rate are COPIED from the product when the line is created: later price changes don't alter old orders. */
+/**
+ * Prices and tax rate are COPIED from the product when the line is created: later price changes don't alter old orders.
+ * Money per line: lineSubtotal (price × qty) − lineDiscount = net; lineTax = net × taxRate; lineTotal = net + lineTax.
+ */
 @Entity
 @Table(name = "sales_order_lines")
 public class SalesOrderLine extends TenantScopedEntity {
@@ -41,6 +44,9 @@ public class SalesOrderLine extends TenantScopedEntity {
     @Column(name = "line_subtotal", nullable = false, precision = 14, scale = 2)
     private BigDecimal lineSubtotal;
 
+    @Column(name = "line_discount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal lineDiscount;
+
     @Column(name = "line_tax", nullable = false, precision = 14, scale = 2)
     private BigDecimal lineTax;
 
@@ -50,14 +56,17 @@ public class SalesOrderLine extends TenantScopedEntity {
     protected SalesOrderLine() {
     }
 
-    public SalesOrderLine(Product product, int quantity, BigDecimal unitPrice, BigDecimal taxRate) {
+    /** @param discountPercent the order-level discount, applied to every line (0 = none) */
+    public SalesOrderLine(Product product, int quantity, BigDecimal unitPrice, BigDecimal taxRate, BigDecimal discountPercent) {
         this.product = product;
         this.quantity = quantity;
         this.unitPrice = Money.round(unitPrice);
         this.taxRate = taxRate;
         this.lineSubtotal = Money.times(this.unitPrice, quantity);
-        this.lineTax = Money.percentOf(lineSubtotal, taxRate);
-        this.lineTotal = lineSubtotal.add(lineTax);
+        this.lineDiscount = Money.percentOf(lineSubtotal, discountPercent);
+        BigDecimal net = lineSubtotal.subtract(lineDiscount);
+        this.lineTax = Money.percentOf(net, taxRate);
+        this.lineTotal = net.add(lineTax);
     }
 
     void attach(SalesOrder order, int lineNo) {
@@ -87,6 +96,10 @@ public class SalesOrderLine extends TenantScopedEntity {
 
     public BigDecimal getLineSubtotal() {
         return lineSubtotal;
+    }
+
+    public BigDecimal getLineDiscount() {
+        return lineDiscount;
     }
 
     public BigDecimal getLineTax() {

@@ -92,7 +92,8 @@ public class InvoiceService {
         List<PaymentResponse> paid = payments.findByInvoiceIdOrderByPaidAtAsc(i.getId()).stream().map(PaymentResponse::from).toList();
         return new InvoiceResponse(i.getId(), i.getNumber(), i.getSalesOrder().getId(), i.getSalesOrder().getNumber(),
                 c == null ? null : c.getId(), c == null ? null : c.getName(), c == null ? null : c.getEmail(),
-                c == null ? null : c.getAddress(), i.getStatus(), i.getIssueDate(), i.getDueDate(), i.getSubtotal(), i.getTaxTotal(),
+                c == null ? null : c.getAddress(), i.getStatus(), i.getIssueDate(), i.getDueDate(), i.getSubtotal(), i.getDiscountTotal(),
+                i.getTaxTotal(),
                 i.getTotal(), i.getAmountPaid(), i.balanceDue(), lines, paid);
     }
 }

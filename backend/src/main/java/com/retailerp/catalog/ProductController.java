@@ -42,9 +42,17 @@ public class ProductController {
     @GetMapping
     @PreAuthorize(Access.ANY)
     public PageResponse<ProductResponse> search(@RequestParam(defaultValue = "") String q,
+            @RequestParam(defaultValue = "") String category,
             @RequestParam(defaultValue = "false") boolean activeOnly,
             @PageableDefault(size = 20, sort = "name", direction = Sort.Direction.ASC) Pageable pageable) {
-        return catalog.searchProducts(q, activeOnly, pageable);
+        return catalog.searchProducts(q, category, activeOnly, pageable);
+    }
+
+    /** Distinct categories of active products (for filters and the POS screen). */
+    @GetMapping("/categories")
+    @PreAuthorize(Access.ANY)
+    public java.util.List<String> categories() {
+        return catalog.categories();
     }
 
     @GetMapping("/{id}")

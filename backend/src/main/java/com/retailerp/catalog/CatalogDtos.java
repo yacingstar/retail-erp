@@ -21,6 +21,7 @@ public final class CatalogDtos {
             @NotBlank @Size(max = 64) String sku,
             @NotBlank @Size(max = 200) String name,
             @Size(max = 5000) String description,
+            @Size(max = 100) String category,
             @Size(max = 20) String unit,
             @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal salePrice,
             @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal costPrice,
@@ -29,11 +30,11 @@ public final class CatalogDtos {
             Boolean active) {
     }
 
-    public record ProductResponse(UUID id, String sku, String name, String description, String unit, BigDecimal salePrice,
+    public record ProductResponse(UUID id, String sku, String name, String description, String category, String unit, BigDecimal salePrice,
             BigDecimal costPrice, BigDecimal taxRate, int reorderLevel, boolean active, Instant createdAt, Instant updatedAt) {
 
         public static ProductResponse from(Product p) {
-            return new ProductResponse(p.getId(), p.getSku(), p.getName(), p.getDescription(), p.getUnit(), p.getSalePrice(),
+            return new ProductResponse(p.getId(), p.getSku(), p.getName(), p.getDescription(), p.getCategory(), p.getUnit(), p.getSalePrice(),
                     p.getCostPrice(), p.getTaxRate(), p.getReorderLevel(), p.isActive(), p.getCreatedAt(), p.getUpdatedAt());
         }
     }

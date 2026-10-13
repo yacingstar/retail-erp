@@ -22,6 +22,9 @@ public class Product extends AuditedEntity {
     @Column(columnDefinition = "text")
     private String description;
 
+    @Column(length = 100)
+    private String category;
+
     @Column(nullable = false, length = 20)
     private String unit;
 
@@ -47,11 +50,12 @@ public class Product extends AuditedEntity {
         this.sku = sku;
     }
 
-    public void update(String sku, String name, String description, String unit, BigDecimal salePrice, BigDecimal costPrice,
-            BigDecimal taxRate, int reorderLevel, boolean active) {
+    public void update(String sku, String name, String description, String category, String unit, BigDecimal salePrice,
+            BigDecimal costPrice, BigDecimal taxRate, int reorderLevel, boolean active) {
         this.sku = sku;
         this.name = name;
         this.description = description;
+        this.category = category;
         this.unit = unit;
         this.salePrice = salePrice;
         this.costPrice = costPrice;
@@ -75,6 +79,10 @@ public class Product extends AuditedEntity {
 
     public String getDescription() {
         return description;
+    }
+
+    public String getCategory() {
+        return category;
     }
 
     public String getUnit() {

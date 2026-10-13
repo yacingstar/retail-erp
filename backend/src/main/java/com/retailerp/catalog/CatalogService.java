@@ -34,8 +34,14 @@ public class CatalogService {
     // --- products -------------------------------------------------------------------------------------------------
 
     @Transactional(readOnly = true)
-    public PageResponse<ProductResponse> searchProducts(String q, boolean activeOnly, Pageable pageable) {
-        return PageResponse.of(products.search(q == null ? "" : q.trim(), activeOnly, pageable), ProductResponse::from);
+    public PageResponse<ProductResponse> searchProducts(String q, String category, boolean activeOnly, Pageable pageable) {
+        return PageResponse.of(products.search(q == null ? "" : q.trim(), category == null ? "" : category.trim(), activeOnly, pageable),
+                ProductResponse::from);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> categories() {
+        return products.categories();
     }
 
     @Transactional(readOnly = true)
@@ -69,7 +75,8 @@ public class CatalogService {
     }
 
     private static void apply(Product product, ProductRequest r) {
-        product.update(r.sku().trim(), r.name().trim(), r.description(), blankTo(r.unit(), "pcs"), r.salePrice(), r.costPrice(),
+        product.update(r.sku().trim(), r.name().trim(), r.description(), blankTo(r.category(), null), blankTo(r.unit(), "pcs"),
+                r.salePrice(), r.costPrice(),
                 r.taxRate() == null ? BigDecimal.ZERO : r.taxRate(), r.reorderLevel() == null ? 0 : r.reorderLevel(),
                 r.active() == null || r.active());
     }

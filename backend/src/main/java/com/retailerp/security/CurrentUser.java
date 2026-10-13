@@ -20,4 +20,17 @@ public final class CurrentUser {
         }
         return null;
     }
+
+    /** The "name" claim of the token (the user's full name), or null. */
+    public static String name() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication instanceof JwtAuthenticationToken jwt ? jwt.getToken().getClaimAsString("name") : null;
+    }
+
+    /** True for ADMIN and MANAGER (e.g. unlimited discounts, cancelling confirmed sales). */
+    public static boolean isManager() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN") || a.getAuthority().equals("ROLE_MANAGER"));
+    }
 }

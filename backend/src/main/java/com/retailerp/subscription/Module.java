@@ -8,7 +8,8 @@ public enum Module {
     INVENTORY("Inventory"),
     SALES("Sales"),
     INVOICING("Invoicing"),
-    PURCHASING("Purchasing");
+    PURCHASING("Purchasing"),
+    POINT_OF_SALE("Point of Sale");
 
     private final String displayName;
 
