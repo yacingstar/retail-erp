@@ -24,9 +24,12 @@ import com.retailerp.inventory.StockDtos.MovementResponse;
 import com.retailerp.inventory.StockDtos.StockLevel;
 import com.retailerp.inventory.StockDtos.TransferRequest;
 import com.retailerp.security.Access;
+import com.retailerp.subscription.Module;
+import com.retailerp.subscription.RequiresModule;
 
 import jakarta.validation.Valid;
 
+@RequiresModule(Module.INVENTORY)
 @RestController
 @RequestMapping("/api/stock")
 public class StockController {

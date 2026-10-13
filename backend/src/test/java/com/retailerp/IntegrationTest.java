@@ -60,6 +60,18 @@ public abstract class IntegrationTest {
         // The app itself connects as the RLS-restricted role, created by the first migration.
         registry.add("spring.datasource.username", () -> "erp_app");
         registry.add("spring.datasource.password", () -> "erp_app_test_password");
+        registry.add("app.platform.admin-email", () -> PLATFORM_EMAIL);
+        registry.add("app.platform.admin-password", () -> PLATFORM_PASSWORD);
+    }
+
+    protected static final String PLATFORM_EMAIL = "platform@example.com";
+    protected static final String PLATFORM_PASSWORD = "platform-password-123";
+
+    /** Logs in as the platform admin (created at startup from the properties above). */
+    protected Session platformAdmin() throws Exception {
+        String body = mvc.perform(post("/api/platform/auth/login").contentType(MediaType.APPLICATION_JSON)
+                .content(toJson(Map.of("email", PLATFORM_EMAIL, "password", PLATFORM_PASSWORD)))).andReturn().getResponse().getContentAsString();
+        return new Session(JsonPath.read(body, "$.token"), null, null, PLATFORM_EMAIL);
     }
 
     private static String env(String name, String fallback) {

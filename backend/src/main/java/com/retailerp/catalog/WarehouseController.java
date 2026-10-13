@@ -18,9 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 import com.retailerp.catalog.CatalogDtos.WarehouseRequest;
 import com.retailerp.catalog.CatalogDtos.WarehouseResponse;
 import com.retailerp.security.Access;
+import com.retailerp.subscription.Module;
+import com.retailerp.subscription.RequiresModule;
 
 import jakarta.validation.Valid;
 
+@RequiresModule(Module.INVENTORY)
 @RestController
 @RequestMapping("/api/warehouses")
 public class WarehouseController {

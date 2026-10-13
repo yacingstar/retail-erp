@@ -23,10 +23,13 @@ import com.retailerp.purchasing.PurchasingDtos.PurchaseOrderRequest;
 import com.retailerp.purchasing.PurchasingDtos.PurchaseOrderResponse;
 import com.retailerp.purchasing.PurchasingDtos.PurchaseOrderSummary;
 import com.retailerp.security.Access;
+import com.retailerp.subscription.Module;
+import com.retailerp.subscription.RequiresModule;
 
 import jakarta.validation.Valid;
 
 /** State changes are POST sub-resources (/order, /receive, /cancel): they're actions, not field edits. */
+@RequiresModule(Module.PURCHASING)
 @RestController
 @RequestMapping("/api/purchase-orders")
 @PreAuthorize(Access.MANAGE)

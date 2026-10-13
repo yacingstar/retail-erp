@@ -16,6 +16,7 @@ import com.retailerp.security.AuthDtos.LoginRequest;
 import com.retailerp.security.AuthDtos.MeResponse;
 import com.retailerp.security.AuthDtos.RegisterRequest;
 import com.retailerp.security.JwtService.AuthenticatedUser;
+import com.retailerp.subscription.SubscriptionService;
 import com.retailerp.tenancy.TenantContext;
 import com.retailerp.tenant.Tenant;
 import com.retailerp.tenant.TenantRepository;
@@ -32,17 +33,19 @@ public class AuthService {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final SubscriptionService subscriptions;
     /** Compared against when the email doesn't exist, so "unknown email" and "wrong password" take the same time. */
     private final String dummyHash;
 
     public AuthService(JdbcTemplate jdbc, TransactionTemplate tx, TenantRepository tenants, UserRepository users,
-            PasswordEncoder passwordEncoder, JwtService jwtService) {
+            PasswordEncoder passwordEncoder, JwtService jwtService, SubscriptionService subscriptions) {
         this.jdbc = jdbc;
         this.tx = tx;
         this.tenants = tenants;
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.subscriptions = subscriptions;
         this.dummyHash = passwordEncoder.encode("not-a-real-password");
     }
 
@@ -57,6 +60,7 @@ public class AuthService {
         // RLS WITH CHECK clause accepts the new rows.
         AuthenticatedUser user = TenantContext.callAs(tenantId, () -> tx.execute(status -> {
             Tenant tenant = tenants.save(new Tenant(tenantId, request.companyName().trim()));
+            subscriptions.startTrial(tenantId); // every new business starts with a Pro trial
             User admin = users.save(new User(email, passwordEncoder.encode(request.password()), request.fullName().trim(), Role.ADMIN));
             return new AuthenticatedUser(admin.getId(), tenant.getId(), admin.getEmail(), admin.getFullName(), admin.getRole());
         }));

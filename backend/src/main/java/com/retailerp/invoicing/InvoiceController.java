@@ -19,9 +19,12 @@ import com.retailerp.invoicing.InvoicingDtos.InvoiceResponse;
 import com.retailerp.invoicing.InvoicingDtos.InvoiceSummary;
 import com.retailerp.invoicing.InvoicingDtos.PaymentRequest;
 import com.retailerp.security.Access;
+import com.retailerp.subscription.Module;
+import com.retailerp.subscription.RequiresModule;
 
 import jakarta.validation.Valid;
 
+@RequiresModule(Module.INVOICING)
 @RestController
 @RequestMapping("/api/invoices")
 @PreAuthorize(Access.ANY)

@@ -21,6 +21,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.retailerp.subscription.ModuleNotInPlanException;
+import com.retailerp.subscription.PlanLimitException;
+
 /**
  * Turns exceptions into RFC 9457 "problem detail" JSON responses ({@code application/problem+json}).
  * <p>
@@ -40,6 +43,23 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(BusinessRuleException.class)
     ProblemDetail handleBusinessRule(BusinessRuleException ex) {
         return problem(HttpStatus.CONFLICT, "Business rule violated", ex.getMessage());
+    }
+
+    /** "code" lets the frontend show an upgrade prompt instead of a generic error. */
+    @ExceptionHandler(ModuleNotInPlanException.class)
+    ProblemDetail handleModuleNotInPlan(ModuleNotInPlanException ex) {
+        ProblemDetail problem = problem(HttpStatus.FORBIDDEN, "Not included in your plan", ex.getMessage());
+        problem.setProperty("code", "MODULE_NOT_IN_PLAN");
+        problem.setProperty("module", ex.getModule());
+        return problem;
+    }
+
+    @ExceptionHandler(PlanLimitException.class)
+    ProblemDetail handlePlanLimit(PlanLimitException ex) {
+        ProblemDetail problem = problem(HttpStatus.CONFLICT, "Plan limit reached", ex.getMessage());
+        problem.setProperty("code", "PLAN_LIMIT_REACHED");
+        problem.setProperty("limit", ex.getLimit());
+        return problem;
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)

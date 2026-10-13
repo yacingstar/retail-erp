@@ -15,6 +15,7 @@ import com.retailerp.catalog.CatalogDtos.WarehouseResponse;
 import com.retailerp.common.BusinessRuleException;
 import com.retailerp.common.NotFoundException;
 import com.retailerp.common.PageResponse;
+import com.retailerp.subscription.SubscriptionService;
 
 @Service
 @Transactional
@@ -22,10 +23,12 @@ public class CatalogService {
 
     private final ProductRepository products;
     private final WarehouseRepository warehouses;
+    private final SubscriptionService subscriptions;
 
-    public CatalogService(ProductRepository products, WarehouseRepository warehouses) {
+    public CatalogService(ProductRepository products, WarehouseRepository warehouses, SubscriptionService subscriptions) {
         this.products = products;
         this.warehouses = warehouses;
+        this.subscriptions = subscriptions;
     }
 
     // --- products -------------------------------------------------------------------------------------------------
@@ -84,6 +87,10 @@ public class CatalogService {
     }
 
     public WarehouseResponse createWarehouse(WarehouseRequest request) {
+        boolean active = request.active() == null || request.active();
+        if (active) {
+            subscriptions.checkWarehouseLimit(warehouses.countByActiveTrue());
+        }
         Warehouse warehouse = new Warehouse(request.code().trim());
         warehouse.update(request.code().trim(), request.name().trim(), request.address(), request.active() == null || request.active());
         return WarehouseResponse.from(warehouses.saveAndFlush(warehouse));
@@ -91,6 +98,9 @@ public class CatalogService {
 
     public WarehouseResponse updateWarehouse(UUID id, WarehouseRequest request) {
         Warehouse warehouse = warehouse(id);
+        if (!warehouse.isActive() && (request.active() == null || request.active())) {
+            subscriptions.checkWarehouseLimit(warehouses.countByActiveTrue()); // reactivating counts too
+        }
         warehouse.update(request.code().trim(), request.name().trim(), request.address(), request.active() == null || request.active());
         warehouses.flush();
         return WarehouseResponse.from(warehouse);

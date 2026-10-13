@@ -68,6 +68,23 @@ public class JwtService {
         return new IssuedToken(token, expiresAt);
     }
 
+    /** Token for a platform administrator: no tenant_id claim, role PLATFORM_ADMIN. */
+    public IssuedToken issuePlatform(java.util.UUID adminId, String email, String fullName) {
+        Instant now = Instant.now();
+        Instant expiresAt = now.plus(properties.ttl());
+        JwtClaimsSet claims = JwtClaimsSet.builder()
+                .issuer(properties.issuer())
+                .subject(adminId.toString())
+                .issuedAt(now)
+                .expiresAt(expiresAt)
+                .claim(CLAIM_ROLES, List.of("PLATFORM_ADMIN"))
+                .claim("email", email)
+                .claim("name", fullName)
+                .build();
+        JwsHeader header = JwsHeader.with(MacAlgorithm.HS256).build();
+        return new IssuedToken(encoder.encode(JwtEncoderParameters.from(header, claims)).getTokenValue(), expiresAt);
+    }
+
     public JwtDecoder decoder() {
         return decoder;
     }

@@ -22,9 +22,12 @@ import com.retailerp.catalog.CatalogDtos.ProductRequest;
 import com.retailerp.catalog.CatalogDtos.ProductResponse;
 import com.retailerp.common.PageResponse;
 import com.retailerp.security.Access;
+import com.retailerp.subscription.Module;
+import com.retailerp.subscription.RequiresModule;
 
 import jakarta.validation.Valid;
 
+@RequiresModule(Module.INVENTORY)
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {

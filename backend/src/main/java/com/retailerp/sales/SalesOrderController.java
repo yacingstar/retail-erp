@@ -24,9 +24,12 @@ import com.retailerp.sales.SalesDtos.SalesOrderRequest;
 import com.retailerp.sales.SalesDtos.SalesOrderResponse;
 import com.retailerp.sales.SalesDtos.SalesOrderSummary;
 import com.retailerp.security.Access;
+import com.retailerp.subscription.Module;
+import com.retailerp.subscription.RequiresModule;
 
 import jakarta.validation.Valid;
 
+@RequiresModule(Module.SALES)
 @RestController
 @RequestMapping("/api/sales-orders")
 @PreAuthorize(Access.ANY)

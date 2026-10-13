@@ -22,9 +22,12 @@ import com.retailerp.common.PageResponse;
 import com.retailerp.common.PartyDtos.PartyRequest;
 import com.retailerp.common.PartyDtos.PartyResponse;
 import com.retailerp.security.Access;
+import com.retailerp.subscription.Module;
+import com.retailerp.subscription.RequiresModule;
 
 import jakarta.validation.Valid;
 
+@RequiresModule(Module.PURCHASING)
 @RestController
 @RequestMapping("/api/suppliers")
 @PreAuthorize(Access.MANAGE)

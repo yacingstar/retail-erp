@@ -10,8 +10,10 @@ public final class Access {
     public static final String ADMIN = "hasRole('ADMIN')";
     /** Catalog, purchasing, stock adjustments, cancellations. */
     public static final String MANAGE = "hasAnyRole('ADMIN', 'MANAGER')";
-    /** Any logged-in user of the tenant (including cashiers). */
-    public static final String ANY = "isAuthenticated()";
+    /** Any logged-in user of a tenant (including cashiers). Platform admins are NOT tenant users. */
+    public static final String ANY = "hasAnyRole('ADMIN', 'MANAGER', 'CASHIER')";
+    /** People who run the SaaS platform (plans, tenants). */
+    public static final String PLATFORM = "hasRole('PLATFORM_ADMIN')";
 
     private Access() {
     }
