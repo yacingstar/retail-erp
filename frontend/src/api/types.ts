@@ -228,3 +228,42 @@ export interface Dashboard {
   dailySales: DailySales[]
   recentSales: SalesOrderSummary[]
 }
+
+export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING'
+
+export interface PlanInfo {
+  code: string
+  name: string
+  maxUsers: number | null
+  maxWarehouses: number | null
+  modules: Module[]
+}
+
+export interface Subscription {
+  planCode: string
+  planName: string
+  basePlanCode: string
+  trialActive: boolean
+  trialEndsAt: string | null
+  modules: Module[]
+  addons: Module[]
+  maxUsers: number | null
+  maxWarehouses: number | null
+  activeUsers: number
+  activeWarehouses: number
+  plans: PlanInfo[]
+  allModules: { code: Module; name: string }[]
+}
+
+export interface PlatformTenant {
+  id: string
+  name: string
+  createdAt: string
+  planCode: string
+  trialPlanCode: string | null
+  trialEndsAt: string | null
+  trialActive: boolean
+  addons: Module[]
+  activeUsers: number
+  activeWarehouses: number
+}

@@ -4,16 +4,23 @@ import { api } from '../api/client'
 import type { Warehouse } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { Badge, Empty, ErrorBox, Field, fieldError, Loading, Modal, PageHeader } from '../components/ui'
+import { useSubscription } from '../auth/useSubscription'
+import { Usage } from './PlanPage'
 
 export function WarehousesPage() {
   const { hasRole } = useAuth()
   const canEdit = hasRole('ADMIN', 'MANAGER')
   const [editing, setEditing] = useState<Warehouse | 'new' | null>(null)
   const warehouses = useQuery({ queryKey: ['warehouses'], queryFn: () => api.get<Warehouse[]>('/api/warehouses') })
+  const { data: sub } = useSubscription()
+  const atLimit = sub ? sub.maxWarehouses !== null && sub.activeWarehouses >= sub.maxWarehouses : false
 
   return (
     <>
-      <PageHeader title="Warehouses" actions={canEdit && <button className="btn btn-primary" onClick={() => setEditing('new')}>New warehouse</button>} />
+      <PageHeader title="Warehouses" actions={<>
+        {sub && <span className="muted">Active: <Usage used={sub.activeWarehouses} max={sub.maxWarehouses} /></span>}
+        {canEdit && <button className="btn btn-primary" disabled={atLimit} title={atLimit ? 'Plan limit reached' : ''} onClick={() => setEditing('new')}>New warehouse</button>}
+      </>} />
       <ErrorBox error={warehouses.error} />
       {warehouses.isLoading ? <Loading /> : warehouses.data?.length === 0 ? <Empty>No warehouses yet. Create one to start tracking stock.</Empty> : (
         <div className="card">
@@ -39,7 +46,7 @@ function WarehouseForm({ warehouse, onClose }: { warehouse: Warehouse | null; on
   const [form, setForm] = useState({ code: warehouse?.code ?? '', name: warehouse?.name ?? '', address: warehouse?.address ?? '', active: warehouse?.active ?? true })
   const save = useMutation({
     mutationFn: () => (warehouse ? api.put(`/api/warehouses/${warehouse.id}`, form) : api.post('/api/warehouses', form)),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['warehouses'] }); onClose() },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['warehouses'] }); queryClient.invalidateQueries({ queryKey: ['subscription'] }); onClose() },
   })
   return (
     <Modal title={warehouse ? `Edit ${warehouse.code}` : 'New warehouse'} onClose={onClose}>

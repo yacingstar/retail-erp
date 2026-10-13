@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { api, getToken, setToken, setUnauthorizedHandler } from '../api/client'
+import { api } from '../api/client'
 import type { AuthResponse, Me, Role } from '../api/types'
 
 interface AuthState {
@@ -17,18 +17,18 @@ const AuthContext = createContext<AuthState | null>(null)
 /** Keeps the logged-in user in React state; the JWT itself lives in localStorage (see api/client.ts). */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<Me | null>(null)
-  const [loading, setLoading] = useState(() => getToken() !== null)
+  const [loading, setLoading] = useState(() => api.getToken() !== null)
   const queryClient = useQueryClient()
 
   const logout = useCallback(() => {
-    setToken(null)
+    api.setToken(null)
     setUser(null)
     queryClient.clear() // never show one tenant's cached data to the next user
   }, [queryClient])
 
   useEffect(() => {
-    setUnauthorizedHandler(logout)
-    if (getToken()) {
+    api.setUnauthorizedHandler(logout)
+    if (api.getToken()) {
       api.get<Me>('/api/auth/me')
         .then(setUser)
         .catch(() => logout())
@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const accept = useCallback((response: AuthResponse) => {
     queryClient.clear()
-    setToken(response.token)
+    api.setToken(response.token)
     setUser(response.user)
   }, [queryClient])
 

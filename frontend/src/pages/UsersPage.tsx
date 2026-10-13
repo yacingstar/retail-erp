@@ -4,15 +4,22 @@ import { api } from '../api/client'
 import type { Role, User } from '../api/types'
 import { date } from '../components/format'
 import { Badge, ErrorBox, Field, fieldError, Loading, Modal, PageHeader } from '../components/ui'
+import { useSubscription } from '../auth/useSubscription'
+import { Usage } from './PlanPage'
 
 const ROLES: Role[] = ['ADMIN', 'MANAGER', 'CASHIER']
 
 export function UsersPage() {
   const [editing, setEditing] = useState<User | 'new' | null>(null)
   const users = useQuery({ queryKey: ['users'], queryFn: () => api.get<User[]>('/api/users') })
+  const { data: sub } = useSubscription()
+  const atLimit = sub ? sub.maxUsers !== null && sub.activeUsers >= sub.maxUsers : false
   return (
     <>
-      <PageHeader title="Users" actions={<button className="btn btn-primary" onClick={() => setEditing('new')}>New user</button>} />
+      <PageHeader title="Users" actions={<>
+        {sub && <span className="muted">Active users: <Usage used={sub.activeUsers} max={sub.maxUsers} /></span>}
+        <button className="btn btn-primary" disabled={atLimit} title={atLimit ? 'Plan limit reached' : ''} onClick={() => setEditing('new')}>New user</button>
+      </>} />
       <p className="muted">ADMIN: everything. MANAGER: everything except users. CASHIER: sales, invoices, customers; read-only catalog and stock.</p>
       <ErrorBox error={users.error} />
       {users.isLoading ? <Loading /> : (
@@ -46,7 +53,7 @@ function UserForm({ user, onClose }: { user: User | null; onClose: () => void })
         await api.post('/api/users', { email: form.email, fullName: form.fullName, role: form.role, password: form.password })
       }
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); onClose() },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['users'] }); queryClient.invalidateQueries({ queryKey: ['subscription'] }); onClose() },
   })
   return (
     <Modal title={user ? `Edit ${user.fullName}` : 'New user'} onClose={onClose}>

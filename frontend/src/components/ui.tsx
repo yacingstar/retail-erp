@@ -14,7 +14,8 @@ export function PageHeader({ title, actions }: { title: string; actions?: ReactN
 export function ErrorBox({ error }: { error: unknown }) {
   if (!error) return null
   const message = error instanceof Error ? error.message : String(error)
-  return <div className="error-box">{message}</div>
+  const planIssue = error instanceof ApiError && (error.code === 'MODULE_NOT_IN_PLAN' || error.code === 'PLAN_LIMIT_REACHED')
+  return <div className="error-box">{message}{planIssue && <> <a href="/plan">See plans</a></>}</div>
 }
 
 export function fieldError(error: unknown, field: string): string | undefined {

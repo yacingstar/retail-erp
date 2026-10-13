@@ -127,3 +127,11 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #c7d8fb; border-c
   .content { padding: 0; }
   .card { border: none; }
 }
+
+.trial-banner { background: #eef4ff; border: 1px solid #c9dafc; color: #1e3f8a; padding: 10px 14px; border-radius: var(--radius); }
+.plan-chip { display: inline-block; align-self: flex-start; background: #2a3346; color: #fff; padding: 2px 10px; border-radius: 999px; font-size: 12px; margin-bottom: 6px; }
+.plan-chip:hover { text-decoration: none; background: var(--primary); }
+.plan-table td:not(:first-child), .plan-table th:not(:first-child) { text-align: center; }
+.plan-table .current { background: #f3f7ff; font-weight: 600; }
+.platform { max-width: 1200px; margin: 0 auto; padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; }
+.checks { display: flex; flex-wrap: wrap; gap: 4px 16px; }

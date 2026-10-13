@@ -34,6 +34,19 @@ each other, so no configuration is needed for local development. To change them,
 For anything beyond local development, set `JWT_SECRET` (`openssl rand -base64 32`). Without it, the backend
 generates a random key at startup and every token becomes invalid on restart.
 
+## Plans and the platform admin
+
+Shops get modules according to their plan (Starter / Business / Pro), plus optional add-on modules. New shops
+start with a 14-day Pro trial. The people running the platform assign plans in the **platform admin panel**:
+
+```bash
+# Set these before starting the backend (the account is created at startup; password ≥ 12 characters)
+PLATFORM_ADMIN_EMAIL=you@example.com PLATFORM_ADMIN_PASSWORD='a-long-password' ./mvnw spring-boot:run
+# PowerShell: $env:PLATFORM_ADMIN_EMAIL="you@example.com"; $env:PLATFORM_ADMIN_PASSWORD="a-long-password"
+```
+
+Then open http://localhost:5173/platform/login.
+
 ## Tests
 
 ```bash

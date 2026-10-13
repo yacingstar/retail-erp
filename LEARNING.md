@@ -289,6 +289,36 @@ Gotchas solved here:
 
 ---
 
+## 8b. Plans, add-ons and the platform admin
+
+Package [`subscription`](backend/src/main/java/com/retailerp/subscription) and [`platform`](backend/src/main/java/com/retailerp/platform),
+migration `V7__plans_and_subscriptions.sql`.
+
+- **Module** = a sellable feature area (enum `Module`). **Plan** = modules + limits (`plans`, `plan_modules` tables).
+  **Add-on** = one module bought on top of a plan (`tenant_addons`). **Entitlements** = what the tenant may use
+  *right now*, computed per request: effective plan (the trial plan while the trial runs) + add-ons.
+- **Gating an API:** `@RequiresModule(Module.PURCHASING)` on a controller. A Spring MVC `HandlerInterceptor`
+  ([`ModuleAccessInterceptor`](backend/src/main/java/com/retailerp/subscription/ModuleAccessInterceptor.java)) runs
+  before every controller method, reads the annotation and checks the entitlements → 403 with
+  `"code": "MODULE_NOT_IN_PLAN"`. Interceptors run *after* the security filters (so the tenant is known) and
+  *before* the controller. Filters wrap the whole servlet; interceptors wrap only Spring MVC handlers.
+- **Limits:** checked in the services before creating (or re-enabling) a user or warehouse → 409
+  `PLAN_LIMIT_REACHED`. Only *active* records count, so deactivating one frees a slot.
+- **A shop can't upgrade itself, even through a bug:** the app's DB role can read its subscription but has no
+  UPDATE privilege on it, and no INSERT on add-ons. Plan changes go through `platform_set_subscription()`, a
+  SECURITY DEFINER function only called from endpoints restricted to `PLATFORM_ADMIN`.
+- **Platform admins** are not tenant users: separate table, separate login (`/api/platform/auth/login`), a JWT with
+  role `PLATFORM_ADMIN` and **no** `tenant_id`. Tenant endpoints require a tenant role (`Access.ANY`), so a
+  platform token can't use them, and a shop token can't use `/api/platform/**`.
+- **Bootstrap:** the first platform admin is created at startup from `PLATFORM_ADMIN_EMAIL` / `PLATFORM_ADMIN_PASSWORD`
+  by an `ApplicationRunner` (code Spring runs once after startup). No password in git.
+- **Frontend:** `GET /api/subscription` drives everything (menu items hidden per module, trial banner, plan page,
+  limits on the Users/Warehouses pages). That's convenience only; the backend enforces it.
+- **Adding a new module later:** add the enum value, a migration inserting it into `plan_modules` for the right
+  plans, `@RequiresModule` on its controllers, and the `module` field on its menu entries.
+
+---
+
 ## 9. Frontend
 
 - **Vite** serves the React app in dev with instant reload and builds static files for production. Its proxy

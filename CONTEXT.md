@@ -11,10 +11,10 @@ _Last updated: 2026-10-13_
 
 | | |
 |---|---|
-| **Current phase** | **MVP complete** (roadmap steps 1–7), on branch `claude/hello-4a7te4`, PR into `main` open for review |
-| **Last thing done** | Session 2 (cloud): built the whole MVP: schema + RLS, JWT security, multi-tenancy, all business modules, React frontend, tests, CI, docs. See §11. |
-| **Pending / open** | The user reviews and merges the PR, then runs it locally (README "Run it locally") and checks that CI is green on GitHub. |
-| **Next step** | User studies `LEARNING.md` section by section. Then pick from "Next steps" in `LEARNING.md` §12 (refresh tokens, partial receipts, Dockerfile, frontend tests...). |
+| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; **plans system done** (feature 1 of the list in §4b) |
+| **Last thing done** | Plans/add-ons/trial + platform admin panel (backend, frontend, 26 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
+| **Pending / open** | User reviews/merges PR [yacingstar/retail-erp#1](https://github.com/yacingstar/retail-erp/pull/1). |
+| **Next step** | Next feature from §4b. **Before each feature, ask the user which sub-features they want** (their rule). |
 
 ---
 
@@ -59,6 +59,21 @@ The user is here to **LEARN**, not just to get code.
 6. ✅ Products + inventory module (plus purchasing, sales, invoicing, dashboard)
 7. ✅ Frontend (React, all modules)
 
+### 4b. Phase 2 feature list (agreed in session 3)
+
+The user wants to build all of these, as **modules sellable per plan**. **Rule: before each feature, ask the user
+questions about which parts they want** (e.g. they do NOT want barcode scanning).
+
+1. ✅ Plans / tiers / add-ons + platform admin panel
+2. Point of Sale (fast checkout screen) – ask about details first (no barcode scanner)
+3. Reports (sales by product/period, stock value, export)
+4. Returns / refunds / credit notes
+5. Supplier bills (what we owe suppliers)
+6. Promotions / discounts / price lists
+7. Accounting (needs the user's country for tax rules: ask)
+8. HR / payroll
+9. Online payment for plans (Stripe) – later
+
 ---
 
 ## 5. Decisions made (and why)
@@ -89,6 +104,12 @@ The user is here to **LEARN**, not just to get code.
 | API docs | springdoc-openapi 3.1.1, `/swagger-ui.html` with bearer auth | Try the API without the frontend |
 | Frontend stack | React 19 + TypeScript + Vite 8, React Router 7, TanStack Query 5, plain CSS | Minimal dependencies |
 | Token storage (frontend) | `localStorage` | Simple; trade-off vs HttpOnly cookie documented in LEARNING.md §9 |
+| Plan model | Plans (Starter/Business/Pro) + per-module add-ons; limits on users and warehouses (active ones only) | Chosen by the user (session 3) |
+| New signups | Starter + 14-day Pro trial (`app.subscription.trial-days`) | Chosen by the user |
+| Plan management | Platform admin panel (`/platform`), plans set by hand; Stripe later | Chosen by the user |
+| Plan contents | Starter: Inventory, Sales, Invoicing, 2 users, 1 warehouse · Business: + Purchasing, 10 users, 3 warehouses · Pro: all, unlimited | Claude's default; change via a Flyway migration |
+| Plan enforcement | `@RequiresModule` + MVC interceptor (403 `MODULE_NOT_IN_PLAN`), limits in services (409 `PLAN_LIMIT_REACHED`); app DB role can't modify subscriptions | Defense in depth, like tenancy |
+| Platform admin | Separate table + login, JWT role `PLATFORM_ADMIN` without tenant; first admin from `PLATFORM_ADMIN_EMAIL`/`PLATFORM_ADMIN_PASSWORD` | Platform staff aren't tenant users; no secrets in git |
 | PostgreSQL version | **`postgres:17`** (pinned major) | Never `latest`. 18's image changed the data directory layout (`PGDATA` under `/var/lib/postgresql/18/...`), and most tutorials use the 17 layout (`/var/lib/postgresql/data`). |
 
 ---
@@ -116,8 +137,10 @@ retail-erp/                      ← git root
 │       ├── sales/       customers, sales orders
 │       ├── invoicing/   invoices, payments
 │       ├── numbering/   document numbers
+│       ├── subscription/ modules, plans, entitlements, @RequiresModule
+│       ├── platform/    platform admin login, tenant list, plan assignment
 │       └── dashboard/
-│   └── src/main/resources/db/migration/   V1..V6 Flyway migrations
+│   └── src/main/resources/db/migration/   V1..V7 Flyway migrations
 │   └── src/test/java/com/retailerp/       IntegrationTest base + auth, isolation, flow tests
 └── frontend/                    ← React app (Vite)
     └── src/ api/ auth/ components/ pages/
@@ -234,10 +257,17 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
   frontend `npm run build` clean, app smoke-tested (health, Swagger, register), and a browser end-to-end run
   (register → warehouse → product → stock → oversell blocked → sale → invoice → payment) with no console errors.
 
+### 2026-10-13: Session 3
+- User asked what the app is and whether it's good; explained (solid foundation, not production-ready).
+- User wants every ERP feature, sold as modules in plans/tiers; agreed list in §4b; rule: ask before each feature.
+- Built feature 1 (plans): user chose plans + add-ons, user/warehouse limits, Pro trial for signups, platform admin
+  panel. 7 new tests (26 total green); browser-checked trial → downgrade → module hidden → limit reached.
+
 ---
 
 ## 12. Current task
 
-Review and merge the MVP PR, run it locally (README), then study `LEARNING.md`.
+Next feature from §4b (Point of Sale): ask the user about its sub-features first.
+Meanwhile: review and merge PR #1, run it locally (README), study `LEARNING.md` (incl. new §8b).
 The original compose task (session 1) was completed by Claude in session 2: `compose.yaml` meets the spec
 (postgres:17, quoted port, named volume, healthcheck, no `version:` key, dev-only defaults).
