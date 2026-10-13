@@ -1,13 +1,11 @@
 package com.retailerp;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
-class ErpBackendApplicationTests {
+class ErpBackendApplicationTests extends IntegrationTest {
 
-	@Test
-	void contextLoads() {
-	}
-
+    /** Starts the whole application (incl. Flyway migrations and Hibernate schema validation). */
+    @Test
+    void contextLoads() {
+    }
 }
