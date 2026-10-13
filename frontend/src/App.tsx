@@ -11,6 +11,7 @@ import { NotInPlan, PlanPage } from './pages/PlanPage'
 import { PlatformLoginPage, PlatformTenantsPage } from './pages/PlatformPages'
 import { useSubscription } from './auth/useSubscription'
 import { PartiesPage } from './pages/PartiesPage'
+import { PosPage, ShiftsPage } from './pages/PosPage'
 import { ProductsPage } from './pages/ProductsPage'
 import { PurchaseOrderDetailPage, PurchaseOrderFormPage, PurchaseOrdersPage } from './pages/PurchaseOrderPages'
 import { SalesOrderDetailPage, SalesOrderFormPage, SalesOrdersPage } from './pages/SalesOrderPages'
@@ -62,6 +63,8 @@ export function App() {
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="users" element={<RequireAuth roles={['ADMIN']}><UsersPage /></RequireAuth>} />
         <Route path="plan" element={<PlanPage />} />
+        <Route path="pos" element={<RequireModule module="POINT_OF_SALE" name="Point of Sale"><PosPage /></RequireModule>} />
+        <Route path="pos/shifts" element={<RequireAuth roles={MANAGE}><RequireModule module="POINT_OF_SALE" name="Point of Sale"><ShiftsPage /></RequireModule></RequireAuth>} />
       </Route>
       <Route path="/platform/login" element={<PlatformLoginPage />} />
       <Route path="/platform" element={<PlatformTenantsPage />} />

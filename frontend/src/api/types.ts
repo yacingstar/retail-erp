@@ -39,6 +39,7 @@ export interface Product {
   sku: string
   name: string
   description: string | null
+  category: string | null
   unit: string
   salePrice: number
   costPrice: number
@@ -159,6 +160,7 @@ export interface SalesOrderLine {
   unitPrice: number
   taxRate: number
   lineSubtotal: number
+  lineDiscount: number
   lineTax: number
   lineTotal: number
 }
@@ -168,6 +170,8 @@ export interface SalesOrder extends SalesOrderSummary {
   confirmedAt: string | null
   notes: string | null
   subtotal: number
+  discountPercent: number
+  discountTotal: number
   taxTotal: number
   lines: SalesOrderLine[]
   invoiceId: string | null
@@ -205,6 +209,7 @@ export interface Invoice extends InvoiceSummary {
   customerEmail: string | null
   customerAddress: string | null
   subtotal: number
+  discountTotal: number
   taxTotal: number
   lines: SalesOrderLine[]
   payments: Payment[]
@@ -229,7 +234,7 @@ export interface Dashboard {
   recentSales: SalesOrderSummary[]
 }
 
-export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING'
+export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE'
 
 export interface PlanInfo {
   code: string
@@ -266,4 +271,44 @@ export interface PlatformTenant {
   addons: Module[]
   activeUsers: number
   activeWarehouses: number
+}
+
+export interface Shift {
+  id: string
+  status: 'OPEN' | 'CLOSED'
+  warehouseId: string
+  warehouseCode: string
+  warehouseName: string
+  openedBy: string
+  openedByName: string | null
+  openedAt: string
+  openingCash: number
+  closedAt: string | null
+  salesCount: number
+  salesTotal: number
+  payments: { method: PaymentMethod; amount: number }[]
+  expectedCash: number
+  countedCash: number | null
+  difference: number | null
+  notes: string | null
+}
+
+export interface Receipt {
+  salesOrderId: string
+  orderNumber: string
+  invoiceId: string
+  invoiceNumber: string
+  shopName: string
+  warehouseName: string
+  cashierName: string | null
+  customerName: string | null
+  soldAt: string
+  lines: { name: string; quantity: number; unitPrice: number; amount: number }[]
+  subtotal: number
+  discountTotal: number
+  taxTotal: number
+  total: number
+  paymentMethod: PaymentMethod
+  cashReceived: number | null
+  change: number
 }

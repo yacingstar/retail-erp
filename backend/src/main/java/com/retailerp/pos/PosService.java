@@ -32,6 +32,8 @@ import com.retailerp.sales.SalesService;
 import com.retailerp.security.CurrentUser;
 import com.retailerp.tenancy.TenantContext;
 import com.retailerp.tenant.TenantRepository;
+import com.retailerp.user.User;
+import com.retailerp.user.UserRepository;
 
 /**
  * Point of Sale = a fast path over the existing modules: a checkout creates a sales order, confirms it (stock +
@@ -46,8 +48,11 @@ public class PosService {
     private final SalesService sales;
     private final InvoiceService invoices;
     private final TenantRepository tenants;
+    private final UserRepository users;
 
-    public PosService(PosShiftRepository shifts, CatalogService catalog, SalesService sales, InvoiceService invoices, TenantRepository tenants) {
+    public PosService(PosShiftRepository shifts, CatalogService catalog, SalesService sales, InvoiceService invoices, TenantRepository tenants,
+            UserRepository users) {
+        this.users = users;
         this.shifts = shifts;
         this.catalog = catalog;
         this.sales = sales;
@@ -106,7 +111,7 @@ public class PosService {
         BigDecimal expected = s.getStatus() == ShiftStatus.OPEN ? s.getOpeningCash().add(shifts.cashTaken(s.getId())) : s.getExpectedCash();
         BigDecimal difference = s.getCountedCash() == null ? null : s.getCountedCash().subtract(expected);
         return new ShiftResponse(s.getId(), s.getStatus(), s.getWarehouse().getId(), s.getWarehouse().getCode(), s.getWarehouse().getName(),
-                s.getOpenedBy(), s.getOpenedAt(), s.getOpeningCash(), s.getClosedBy(), s.getClosedAt(), totals.count(), totals.total(),
+                s.getOpenedBy(), users.findById(s.getOpenedBy()).map(User::getFullName).orElse(null), s.getOpenedAt(), s.getOpeningCash(), s.getClosedBy(), s.getClosedAt(), totals.count(), totals.total(),
                 shifts.paymentsByMethod(s.getId()), expected, s.getCountedCash(), difference, s.getNotes());
     }
 
@@ -140,7 +145,7 @@ public class PosService {
         }
 
         List<ReceiptLine> lines = order.getLines().stream()
-                .map(l -> new ReceiptLine(l.getProduct().getName(), l.getQuantity(), l.getUnitPrice(), l.getLineTotal())).toList();
+                .map(l -> new ReceiptLine(l.getProduct().getName(), l.getQuantity(), l.getUnitPrice(), l.getLineSubtotal())).toList();
         String shopName = tenants.findById(TenantContext.get()).map(t -> t.getName()).orElse("");
         return new Receipt(order.getId(), order.getNumber(), invoice.getId(), invoice.getNumber(), shopName, shift.getWarehouse().getName(),
                 CurrentUser.name(), order.getCustomer() == null ? null : order.getCustomer().getName(), order.getConfirmedAt(), lines,

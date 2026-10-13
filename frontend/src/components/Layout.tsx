@@ -5,6 +5,7 @@ import type { Module, Role } from '../api/types'
 
 const NAV: { to: string; label: string; roles?: Role[]; module?: Module }[] = [
   { to: '/', label: 'Dashboard' },
+  { to: '/pos', label: 'Point of Sale', module: 'POINT_OF_SALE' },
   { to: '/sales-orders', label: 'Sales', module: 'SALES' },
   { to: '/invoices', label: 'Invoices', module: 'INVOICING' },
   { to: '/customers', label: 'Customers', module: 'SALES' },

@@ -178,6 +178,7 @@ export function SalesOrderDetailPage() {
           </tbody>
           <tfoot>
             <tr><td colSpan={5} className="num">Subtotal</td><td className="num">{money(so.subtotal)}</td></tr>
+            {so.discountTotal > 0 && <tr><td colSpan={5} className="num">Discount ({so.discountPercent}%)</td><td className="num">−{money(so.discountTotal)}</td></tr>}
             <tr><td colSpan={5} className="num">Tax</td><td className="num">{money(so.taxTotal)}</td></tr>
             <tr><td colSpan={5} className="num"><strong>Total</strong></td><td className="num"><strong>{money(so.total)}</strong></td></tr>
           </tfoot>

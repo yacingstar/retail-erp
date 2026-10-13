@@ -6,7 +6,7 @@ import type { Module, PlanInfo, PlatformTenant } from '../api/types'
 import { date } from '../components/format'
 import { ErrorBox, Field, Loading, Modal, PageHeader, SearchBox } from '../components/ui'
 
-const MODULE_NAMES: Record<Module, string> = { INVENTORY: 'Inventory', SALES: 'Sales', INVOICING: 'Invoicing', PURCHASING: 'Purchasing' }
+const MODULE_NAMES: Record<Module, string> = { INVENTORY: 'Inventory', SALES: 'Sales', INVOICING: 'Invoicing', PURCHASING: 'Purchasing', POINT_OF_SALE: 'Point of Sale' }
 
 /** Login for the people who run the platform. Separate token from shop users. */
 export function PlatformLoginPage() {

@@ -36,7 +36,7 @@ public final class PosDtos {
     }
 
     public record ShiftResponse(UUID id, ShiftStatus status, UUID warehouseId, String warehouseCode, String warehouseName, UUID openedBy,
-            Instant openedAt, BigDecimal openingCash, UUID closedBy, Instant closedAt, long salesCount, BigDecimal salesTotal,
+            String openedByName, Instant openedAt, BigDecimal openingCash, UUID closedBy, Instant closedAt, long salesCount, BigDecimal salesTotal,
             List<MethodTotal> payments, BigDecimal expectedCash, BigDecimal countedCash, BigDecimal difference, String notes) {
     }
 
@@ -50,7 +50,8 @@ public final class PosDtos {
             @DecimalMin("0") @Digits(integer = 12, fraction = 2) BigDecimal cashReceived) {
     }
 
-    public record ReceiptLine(String name, int quantity, BigDecimal unitPrice, BigDecimal lineTotal) {
+    /** Amount before the order discount and tax (those are shown once, at the bottom of the receipt). */
+    public record ReceiptLine(String name, int quantity, BigDecimal unitPrice, BigDecimal amount) {
     }
 
     public record Receipt(UUID salesOrderId, String orderNumber, UUID invoiceId, String invoiceNumber, String shopName,

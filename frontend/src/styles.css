@@ -123,9 +123,14 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #c7d8fb; border-c
 }
 
 @media print {
-  .sidebar, .page-header .actions, .no-print { display: none !important; }
+  .sidebar, .page-header .actions, .no-print, .trial-banner { display: none !important; }
   .content { padding: 0; }
   .card { border: none; }
+  /* POS receipt: print only the receipt, at till-printer width. */
+  body.print-receipt * { visibility: hidden; }
+  body.print-receipt .receipt, body.print-receipt .receipt * { visibility: visible; }
+  body.print-receipt .receipt { position: absolute; left: 0; top: 0; width: 72mm; margin: 0; border: none; }
+  body.print-receipt .modal-backdrop { background: none; }
 }
 
 .trial-banner { background: #eef4ff; border: 1px solid #c9dafc; color: #1e3f8a; padding: 10px 14px; border-radius: var(--radius); }
@@ -135,3 +140,51 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #c7d8fb; border-c
 .plan-table .current { background: #f3f7ff; font-weight: 600; }
 .platform { max-width: 1200px; margin: 0 auto; padding: 24px 32px; display: flex; flex-direction: column; gap: 16px; }
 .checks { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+
+/* --- Point of Sale --- */
+.open-shift { max-width: 420px; }
+.pos-layout { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
+.pos-products { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.pos-search { max-width: none; font-size: 16px; padding: 10px 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { border: 1px solid var(--border); background: #fff; border-radius: 999px; padding: 5px 12px; cursor: pointer; font: inherit; }
+.chip.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+.tile { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; text-align: left; min-height: 92px; padding: 12px;
+  background: #fff; border: 1px solid var(--border); border-radius: var(--radius); cursor: pointer; font: inherit; }
+.tile:hover { border-color: var(--primary); box-shadow: 0 0 0 2px #c7d8fb; }
+.tile:active { transform: scale(.98); }
+.tile span { font-size: 16px; font-weight: 600; }
+.tile small { color: var(--muted); }
+.tile.out { opacity: .55; }
+.pos-cart { position: sticky; top: 16px; display: flex; flex-direction: column; gap: 10px; }
+.cart-lines { display: flex; flex-direction: column; max-height: 40vh; overflow-y: auto; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.cart-empty { padding: 20px 0; text-align: center; }
+.cart-line { display: grid; grid-template-columns: 1fr auto 76px 72px 20px; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f2f5; }
+.cart-line:last-child { border-bottom: none; }
+.cart-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qty { display: flex; align-items: center; gap: 4px; }
+.qty button { width: 26px; height: 26px; border: 1px solid var(--border); background: #fff; border-radius: 6px; cursor: pointer; }
+.qty span { min-width: 20px; text-align: center; }
+.cart-price { padding: 4px 6px; text-align: right; }
+.cart-totals { display: flex; flex-direction: column; gap: 4px; }
+.cart-totals > div { display: flex; justify-content: space-between; }
+.cart-totals .grand { font-size: 20px; font-weight: 700; padding-top: 4px; }
+.discount { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.discount input { width: 90px; }
+.pay-method { justify-content: stretch; }
+.pay-method button { flex: 1; }
+.cash label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.cash input { width: 140px; }
+.quick-cash { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.change { font-size: 18px; font-weight: 600; margin-top: 6px; color: var(--green); }
+.change.neg { color: var(--danger); }
+.btn.pay { padding: 12px; font-size: 16px; }
+.receipt { font-family: ui-monospace, 'Courier New', monospace; font-size: 13px; max-width: 320px; margin: 0 auto; padding: 12px; border: 1px dashed var(--border); }
+.receipt .center { text-align: center; }
+.receipt .small { font-size: 12px; }
+.receipt hr { border: none; border-top: 1px dashed #999; margin: 8px 0; }
+.receipt .r-row { display: flex; justify-content: space-between; }
+.receipt .r-total { font-weight: 700; font-size: 15px; }
+.receipt .r-line { margin-bottom: 4px; }
+@media (max-width: 1000px) { .pos-layout { grid-template-columns: 1fr; } .pos-cart { position: static; } }

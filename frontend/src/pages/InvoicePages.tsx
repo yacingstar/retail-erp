@@ -84,6 +84,7 @@ export function InvoiceDetailPage() {
           </tbody>
           <tfoot>
             <tr><td colSpan={4} className="num">Subtotal</td><td className="num">{money(inv.subtotal)}</td></tr>
+            {inv.discountTotal > 0 && <tr><td colSpan={4} className="num">Discount</td><td className="num">−{money(inv.discountTotal)}</td></tr>}
             <tr><td colSpan={4} className="num">Tax</td><td className="num">{money(inv.taxTotal)}</td></tr>
             <tr><td colSpan={4} className="num"><strong>Total</strong></td><td className="num"><strong>{money(inv.total)}</strong></td></tr>
             <tr><td colSpan={4} className="num">Paid</td><td className="num">{money(inv.amountPaid)}</td></tr>

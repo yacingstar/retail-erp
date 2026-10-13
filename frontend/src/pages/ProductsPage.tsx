@@ -28,11 +28,11 @@ export function ProductsPage() {
       {products.isLoading ? <Loading /> : products.data?.content.length === 0 ? <Empty>No products found.</Empty> : (
         <div className="card">
           <table className="table">
-            <thead><tr><th>SKU</th><th>Name</th><th>Unit</th><th className="num">Price</th><th className="num">Cost</th><th className="num">Tax %</th><th className="num">Reorder at</th><th>Status</th></tr></thead>
+            <thead><tr><th>SKU</th><th>Name</th><th>Category</th><th>Unit</th><th className="num">Price</th><th className="num">Cost</th><th className="num">Tax %</th><th className="num">Reorder at</th><th>Status</th></tr></thead>
             <tbody>
               {products.data?.content.map((p) => (
                 <tr key={p.id} className={canEdit ? 'clickable' : ''} onClick={() => canEdit && setEditing(p)}>
-                  <td>{p.sku}</td><td>{p.name}</td><td>{p.unit}</td><td className="num">{money(p.salePrice)}</td>
+                  <td>{p.sku}</td><td>{p.name}</td><td>{p.category}</td><td>{p.unit}</td><td className="num">{money(p.salePrice)}</td>
                   <td className="num">{money(p.costPrice)}</td><td className="num">{p.taxRate}</td><td className="num">{p.reorderLevel}</td>
                   <td><Badge value={p.active} /></td>
                 </tr>
@@ -50,11 +50,12 @@ export function ProductsPage() {
 function ProductForm({ product, onClose }: { product: Product | null; onClose: () => void }) {
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
-    sku: product?.sku ?? '', name: product?.name ?? '', description: product?.description ?? '', unit: product?.unit ?? 'pcs',
+    sku: product?.sku ?? '', name: product?.name ?? '', description: product?.description ?? '', category: product?.category ?? '', unit: product?.unit ?? 'pcs',
     salePrice: String(product?.salePrice ?? ''), costPrice: String(product?.costPrice ?? ''), taxRate: String(product?.taxRate ?? '0'),
     reorderLevel: String(product?.reorderLevel ?? '0'), active: product?.active ?? true,
   })
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [key]: e.target.value })
+  const categories = useQuery({ queryKey: ['products', 'categories'], queryFn: () => api.get<string[]>('/api/products/categories') })
 
   const save = useMutation({
     mutationFn: () => {
@@ -79,6 +80,8 @@ function ProductForm({ product, onClose }: { product: Product | null; onClose: (
           <Field label="Sale price" error={fieldError(error, 'salePrice')}><input type="number" step="0.01" min="0" value={form.salePrice} onChange={set('salePrice')} required /></Field>
           <Field label="Cost price" error={fieldError(error, 'costPrice')}><input type="number" step="0.01" min="0" value={form.costPrice} onChange={set('costPrice')} required /></Field>
           <Field label="Tax rate (%)" error={fieldError(error, 'taxRate')}><input type="number" step="0.01" min="0" max="100" value={form.taxRate} onChange={set('taxRate')} /></Field>
+          <Field label="Category"><input value={form.category} onChange={set('category')} list="categories" placeholder="e.g. Drinks" /></Field>
+          <datalist id="categories">{categories.data?.map((c) => <option key={c} value={c} />)}</datalist>
           <Field label="Unit"><input value={form.unit} onChange={set('unit')} /></Field>
           <Field label="Reorder level" error={fieldError(error, 'reorderLevel')}><input type="number" min="0" value={form.reorderLevel} onChange={set('reorderLevel')} /></Field>
           <label className="checkbox"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>

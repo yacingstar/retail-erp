@@ -319,6 +319,33 @@ migration `V7__plans_and_subscriptions.sql`.
 
 ---
 
+## 8c. Point of Sale
+
+Package [`pos`](backend/src/main/java/com/retailerp/pos), migration `V8__point_of_sale.sql`, screen
+[`PosPage.tsx`](frontend/src/pages/PosPage.tsx).
+
+- **POS reuses the existing modules.** A checkout = create a sales order → confirm it (stock lock + SALE movements +
+  invoice) → record the payment, **all in one transaction** (`PosService.checkout`). If the cash is short or the
+  stock is missing, the exception rolls back everything: no half-made sale.
+  `SalesService.createConfirmed` uses `Propagation.MANDATORY` so it can only run inside that transaction.
+- **Shifts:** a cashier opens a shift with the cash in the drawer, sells, then closes it with a cash count.
+  Expected cash = opening float + cash payments during the shift (a JPQL query that walks
+  `Payment → Invoice → SalesOrder.posShiftId`). The difference is stored on the shift.
+  One open shift per cashier is enforced by a **partial unique index** (`WHERE status = 'OPEN'`): a unique
+  constraint that only applies to some rows.
+- **Discounts:** an order-level % applied to every line (`line_discount`), with tax computed on the discounted amount:
+  `subtotal − discount + tax = total`. Cashiers are limited to 10% (`app.pos.cashier-max-discount-percent`), whether
+  they lower a price or set a %; managers aren't. The limit is checked in `SalesService`, so it also applies to
+  normal sales orders.
+- **No package cycle:** `SalesOrder` stores `pos_shift_id` as a plain UUID instead of a `@ManyToOne PosShift`, so
+  the sales module doesn't depend on the POS module (POS depends on sales, not the reverse).
+- **Receipt printing:** the receipt is normal HTML; printing adds a CSS class to `<body>` so the print stylesheet
+  hides everything except the receipt, sized for a till printer (72 mm).
+- **Gotcha we hit:** a CSS class named `pos` (for the layout) clashed with an existing `.pos` (green "positive
+  number" text). Global CSS class names collide; CSS Modules or a naming convention avoid it.
+
+---
+
 ## 9. Frontend
 
 - **Vite** serves the React app in dev with instant reload and builds static files for production. Its proxy
