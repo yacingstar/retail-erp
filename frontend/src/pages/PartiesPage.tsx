@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, query } from '../api/client'
-import type { Page, Party, StoreCredit } from '../api/types'
+import type { Page, Party, PriceListSummary, StoreCredit } from '../api/types'
 import { Link } from 'react-router-dom'
 import { useSubscription } from '../auth/useSubscription'
 import { date, label, money } from '../components/format'
@@ -49,15 +49,20 @@ export function PartiesPage({ kind }: { kind: 'customers' | 'suppliers' }) {
 
 function PartyForm({ kind, party, canDelete, onClose }: { kind: string; party: Party | null; canDelete: boolean; onClose: () => void }) {
   const { has } = useSubscription()
+  const priceLists = useQuery({
+    queryKey: ['price-lists'],
+    queryFn: () => api.get<PriceListSummary[]>('/api/price-lists'),
+    enabled: kind === 'customers' && has('PROMOTIONS'),
+  })
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
-    name: party?.name ?? '', email: party?.email ?? '', phone: party?.phone ?? '', address: party?.address ?? '', notes: party?.notes ?? '', active: party?.active ?? true,
+    name: party?.name ?? '', email: party?.email ?? '', phone: party?.phone ?? '', address: party?.address ?? '', notes: party?.notes ?? '', active: party?.active ?? true, priceListId: party?.priceListId ?? '',
   })
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm({ ...form, [key]: e.target.value })
   const done = () => { queryClient.invalidateQueries({ queryKey: [kind] }); onClose() }
   const save = useMutation({
     mutationFn: () => {
-      const body = { ...form, email: form.email || null }
+      const body = { ...form, email: form.email || null, priceListId: form.priceListId || null }
       return party ? api.put(`/api/${kind}/${party.id}`, body) : api.post(`/api/${kind}`, body)
     },
     onSuccess: done,
@@ -73,6 +78,14 @@ function PartyForm({ kind, party, canDelete, onClose }: { kind: string; party: P
           <Field label="Name" error={fieldError(error, 'name')}><input value={form.name} onChange={set('name')} required /></Field>
           <Field label="Email" error={fieldError(error, 'email')}><input type="email" value={form.email} onChange={set('email')} /></Field>
           <Field label="Phone"><input value={form.phone} onChange={set('phone')} /></Field>
+          {kind === 'customers' && has('PROMOTIONS') && (
+            <Field label="Price list (customer group)">
+              <select value={form.priceListId} onChange={(e) => setForm({ ...form, priceListId: e.target.value })}>
+                <option value="">Normal prices</option>
+                {priceLists.data?.filter((p) => p.active || p.id === form.priceListId).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </Field>
+          )}
           <label className="checkbox"><input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} /> Active</label>
         </div>
         <Field label="Address"><textarea rows={2} value={form.address} onChange={set('address')} /></Field>

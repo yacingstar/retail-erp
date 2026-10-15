@@ -429,6 +429,35 @@ Package [`payables`](backend/src/main/java/com/retailerp/payables), migration `V
 
 ---
 
+## 8g. Promotions, coupons and price lists
+
+Package [`pricing`](backend/src/main/java/com/retailerp/pricing), migration `V12__promotions_and_price_lists.sql`,
+pages [`PromotionPages.tsx`](frontend/src/pages/PromotionPages.tsx).
+
+- **One place computes prices:** [`PricingService`](backend/src/main/java/com/retailerp/pricing/PricingService.java).
+  Sales orders, the POS and the live preview all call it, so they can never disagree. It's a *pure calculation*: it
+  reads, never writes.
+- **Base price:** the customer's price list price if the product is on it, otherwise the product's normal price.
+- **"Best for the customer, never stacked":** for each line, the biggest item promotion; separately, the biggest
+  whole-order promotion; whichever saves more in total wins. Comparing totals (not line by line) is what stops an
+  order discount from being added on top of item discounts.
+- **Order discounts are spread over the lines** in proportion to their amounts (the last line takes the rounding
+  remainder). Storing everything as line discounts means invoices, **returns** (proportional refunds) and **reports**
+  (net sales) needed no changes: `line_discount` now = promotion + manual discount, with `promo_discount` and
+  `promotion_name` kept for display.
+- **Coupons:** a promotion with a code only joins the candidates when the code is entered; an unknown/expired code
+  is an error, not a silent "no discount". Codes are unique per shop ignoring case: a *unique index on
+  `lower(coupon_code)`* with `WHERE coupon_code IS NOT NULL` (partial).
+- **Live preview without saving:** `POST /api/sales-orders/preview` builds a `SalesOrder` object in memory and never
+  calls `save()`. Hibernate only writes entities it was asked to persist, so nothing is stored and no document
+  number is consumed (`manualDiscountAppliesAfterThePromotionAndPreviewMatchesTheSale`).
+- **Cashier limit vs. price lists:** the 10% limit is measured from the *customer's* price (the price-list price),
+  and promotions don't count against it: managers set those up.
+- **Plan check inside the calculation:** without the Promotions module, prices are plain product prices and coupons
+  are refused (403), even if promotions were created during the trial.
+
+---
+
 ## 9. Frontend
 
 - **Vite** serves the React app in dev with instant reload and builds static files for production. Its proxy

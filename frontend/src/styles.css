@@ -205,3 +205,8 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #c7d8fb; border-c
 /* --- Returns --- */
 .checkbox.inline { margin: 0; }
 .store-credit { background: #f6f3fd; border: 1px solid #e3dbf6; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 2px; }
+
+/* --- Promotions --- */
+.promo-tag { display: block; color: var(--green); font-size: 12px; }
+.chip-small { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: #eef0f3; margin-left: 6px; font-family: ui-monospace, monospace; }
+.cart-name .promo-tag { white-space: normal; }

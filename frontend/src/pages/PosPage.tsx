@@ -2,10 +2,11 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, query } from '../api/client'
-import type { Page, Party, Product, Receipt, Shift, StockLevel, StoreCredit, Warehouse } from '../api/types'
+import type { Page, Party, Product, Receipt, SalesOrder, Shift, StockLevel, StoreCredit, Warehouse } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { dateTime, label, money } from '../components/format'
 import { ErrorBox, Field, Loading, Modal, PageHeader, useDebounced } from '../components/ui'
+import { useSubscription } from '../auth/useSubscription'
 
 interface CartLine {
   product: Product
@@ -85,6 +86,8 @@ function Till({ shift }: { shift: Shift }) {
   const [cashReceived, setCashReceived] = useState('')
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [closing, setClosing] = useState(false)
+  const [coupon, setCoupon] = useState('')
+  const { has } = useSubscription()
   const search = useDebounced(q, 200)
 
   const categories = useQuery({ queryKey: ['products', 'categories'], queryFn: () => api.get<string[]>('/api/products/categories') })
@@ -106,7 +109,23 @@ function Till({ shift }: { shift: Shift }) {
   const onHand = useMemo(() => new Map((stock.data ?? []).map((l) => [l.productId, l.quantity])), [stock.data])
 
   const discountPercent = Math.min(100, Math.max(0, Number(discount) || 0))
-  const t = totals(cart, discountPercent)
+  const couponCode = useDebounced(coupon.trim(), 400)
+  // The server prices the basket (customer's price list, promotions, coupon, discount, tax) without saving anything.
+  // The local calculation below is only shown until the first answer arrives.
+  const previewBody = {
+    customerId: customerId || null, warehouseId: shift.warehouseId, discountPercent, couponCode: couponCode || null,
+    lines: cart.map((l) => ({ productId: l.product.id, quantity: l.quantity, unitPrice: l.unitPrice })),
+  }
+  const preview = useQuery({
+    queryKey: ['pos-preview', JSON.stringify(previewBody)],
+    queryFn: () => api.post<SalesOrder>('/api/sales-orders/preview', previewBody),
+    enabled: cart.length > 0,
+    retry: false,
+    placeholderData: keepPreviousData,
+  })
+  const priced = cart.length > 0 && !preview.isError ? preview.data : undefined
+  const local = totals(cart, discountPercent)
+  const t = priced ? { subtotal: priced.subtotal, discount: priced.discountTotal, tax: priced.taxTotal, total: priced.total } : local
   const cash = Number(cashReceived) || 0
   const change = method === 'CASH' && cashReceived !== '' ? round2(cash - t.total) : 0
 
@@ -118,13 +137,14 @@ function Till({ shift }: { shift: Shift }) {
   })
   const update = (id: string, patch: Partial<CartLine>) => setCart((lines) => lines.map((l) => (l.product.id === id ? { ...l, ...patch } : l)))
   const remove = (id: string) => setCart((lines) => lines.filter((l) => l.product.id !== id))
-  const reset = () => { setCart([]); setCustomerId(''); setDiscount(''); setCashReceived(''); setMethod('CASH') }
+  const reset = () => { setCart([]); setCustomerId(''); setDiscount(''); setCashReceived(''); setMethod('CASH'); setCoupon('') }
 
   const checkout = useMutation({
     mutationFn: () => api.post<Receipt>('/api/pos/checkout', {
       customerId: customerId || null,
       lines: cart.map((l) => ({ productId: l.product.id, quantity: l.quantity, unitPrice: l.unitPrice })),
       discountPercent,
+      couponCode: coupon.trim() || null,
       paymentMethod: method,
       cashReceived: method === 'CASH' && cashReceived !== '' ? cash : null,
     }),
@@ -135,7 +155,7 @@ function Till({ shift }: { shift: Shift }) {
     },
   })
 
-  const cannotPay = cart.length === 0 || checkout.isPending || (method === 'CASH' && cashReceived !== '' && cash < t.total)
+  const cannotPay = cart.length === 0 || checkout.isPending || preview.isError || (method === 'CASH' && cashReceived !== '' && cash < t.total)
 
   return (
     <>
@@ -174,28 +194,39 @@ function Till({ shift }: { shift: Shift }) {
 
           <div className="cart-lines">
             {cart.length === 0 && <div className="muted cart-empty">Tap a product to add it.</div>}
-            {cart.map((l) => (
+            {cart.map((l, i) => {
+              const line = priced?.lines[i]
+              const price = l.unitPrice ?? line?.unitPrice ?? l.product.salePrice
+              return (
               <div key={l.product.id} className="cart-line">
-                <div className="cart-name">{l.product.name}</div>
+                <div className="cart-name">
+                  {l.product.name}
+                  {line?.promotionName && <small className="promo-tag">{line.promotionName} −{money(line.promoDiscount)}</small>}
+                </div>
                 <div className="qty">
                   <button onClick={() => (l.quantity > 1 ? update(l.product.id, { quantity: l.quantity - 1 }) : remove(l.product.id))} aria-label="Less">−</button>
                   <span>{l.quantity}</span>
                   <button onClick={() => update(l.product.id, { quantity: l.quantity + 1 })} aria-label="More">+</button>
                 </div>
                 <input className="cart-price" type="number" min="0" step="0.01" title="Unit price"
-                  value={l.unitPrice ?? l.product.salePrice}
+                  value={price}
                   onChange={(e) => update(l.product.id, { unitPrice: e.target.value === '' ? null : Number(e.target.value) })} />
-                <div className="num">{money((l.unitPrice ?? l.product.salePrice) * l.quantity)}</div>
+                <div className="num">{money(price * l.quantity)}</div>
                 <button className="btn-icon" onClick={() => remove(l.product.id)} aria-label="Remove">×</button>
               </div>
-            ))}
+              )
+            })}
           </div>
 
           <div className="cart-totals">
             <label className="discount">Discount % <input type="number" min="0" max="100" step="0.5" value={discount} onChange={(e) => setDiscount(e.target.value)} placeholder="0" /></label>
             {!manager && <small className="muted">Cashiers: up to 10%</small>}
+            {has('PROMOTIONS') && (
+              <label className="discount">Coupon <input value={coupon} onChange={(e) => setCoupon(e.target.value)} placeholder="Code" /></label>
+            )}
+            {preview.isError && <div className="error-box">{(preview.error as Error).message}</div>}
             <div><span>Subtotal</span><span>{money(t.subtotal)}</span></div>
-            {t.discount > 0 && <div><span>Discount</span><span>−{money(t.discount)}</span></div>}
+            {t.discount > 0 && <div><span>Discounts</span><span>−{money(t.discount)}</span></div>}
             <div><span>Tax</span><span>{money(t.tax)}</span></div>
             <div className="grand"><span>Total</span><span>{money(t.total)}</span></div>
           </div>
@@ -246,11 +277,12 @@ export function ReceiptView({ receipt: r }: { receipt: Receipt }) {
         <div key={i} className="r-line">
           <div>{l.name}</div>
           <div className="r-row"><span>{l.quantity} × {money(l.unitPrice)}</span><span>{money(l.amount)}</span></div>
+          {l.promotionName && <div className="r-row small"><span>  {l.promotionName}</span><span>−{money(l.promoDiscount)}</span></div>}
         </div>
       ))}
       <hr />
       <div className="r-row"><span>Subtotal</span><span>{money(r.subtotal)}</span></div>
-      {r.discountTotal > 0 && <div className="r-row"><span>Discount</span><span>−{money(r.discountTotal)}</span></div>}
+      {r.discountTotal > 0 && <div className="r-row"><span>Discounts</span><span>−{money(r.discountTotal)}</span></div>}
       <div className="r-row"><span>Tax</span><span>{money(r.taxTotal)}</span></div>
       <div className="r-row r-total"><span>TOTAL</span><span>{money(r.total)}</span></div>
       <div className="r-row"><span>{label(r.paymentMethod)}</span><span>{money(r.cashReceived ?? r.total)}</span></div>

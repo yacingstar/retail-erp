@@ -58,6 +58,7 @@ export interface Warehouse {
 
 export interface Party {
   id: string
+  priceListId?: string | null
   name: string
   email: string | null
   phone: string | null
@@ -161,6 +162,8 @@ export interface SalesOrderLine {
   taxRate: number
   lineSubtotal: number
   lineDiscount: number
+  promoDiscount: number
+  promotionName: string | null
   lineTax: number
   lineTotal: number
 }
@@ -172,6 +175,7 @@ export interface SalesOrder extends SalesOrderSummary {
   subtotal: number
   discountPercent: number
   discountTotal: number
+  couponCode: string | null
   taxTotal: number
   lines: SalesOrderLine[]
   invoiceId: string | null
@@ -237,7 +241,7 @@ export interface Dashboard {
   recentSales: SalesOrderSummary[]
 }
 
-export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS' | 'SUPPLIER_BILLS'
+export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS' | 'SUPPLIER_BILLS' | 'PROMOTIONS'
 
 export interface PlanInfo {
   code: string
@@ -307,7 +311,7 @@ export interface Receipt {
   cashierName: string | null
   customerName: string | null
   soldAt: string
-  lines: { name: string; quantity: number; unitPrice: number; amount: number }[]
+  lines: { name: string; quantity: number; unitPrice: number; amount: number; promotionName: string | null; promoDiscount: number }[]
   subtotal: number
   discountTotal: number
   taxTotal: number
@@ -463,4 +467,36 @@ export interface SupplierStatement {
   totalPaid: number
   balance: number
   entries: { date: string; type: 'BILL' | 'PAYMENT'; billId: string; document: string; reference: string | null; amount: number; balance: number }[]
+}
+
+export type PromotionType = 'PERCENT_OFF' | 'AMOUNT_OFF' | 'BUY_X_GET_Y' | 'ORDER_PERCENT_OFF'
+export type PromotionScope = 'ALL' | 'CATEGORY' | 'PRODUCT'
+
+export interface Promotion {
+  id: string
+  name: string
+  type: PromotionType
+  value: number
+  buyQty: number | null
+  getQty: number | null
+  minOrderAmount: number | null
+  scope: PromotionScope
+  category: string | null
+  productId: string | null
+  productName: string | null
+  couponCode: string | null
+  startsOn: string | null
+  endsOn: string | null
+  active: boolean
+  runningToday: boolean
+}
+
+export interface PriceListSummary {
+  id: string
+  name: string
+  active: boolean
+}
+
+export interface PriceList extends PriceListSummary {
+  items: { productId: string; sku: string; productName: string; normalPrice: number; price: number }[]
 }

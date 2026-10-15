@@ -11,8 +11,8 @@ _Last updated: 2026-10-13_
 
 | | |
 |---|---|
-| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–5 of §4b done (plans, Point of Sale, Reports, Returns, Supplier bills) |
-| **Last thing done** | Supplier bills (drafts from received POs, manual bills, partial payments, statement; 47 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
+| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–6 of §4b done (plans, POS, Reports, Returns, Supplier bills, Promotions) |
+| **Last thing done** | Promotions + coupons + price lists (55 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
 | **Pending / open** | User reviews/merges PR [yacingstar/retail-erp#1](https://github.com/yacingstar/retail-erp/pull/1). |
 | **Next step** | Next feature from §4b. **Before each feature, ask the user which sub-features they want** (their rule). |
 
@@ -74,7 +74,9 @@ questions about which parts they want** (e.g. they do NOT want barcode scanning)
 5. ✅ Supplier bills: draft bill auto-created when a PO is received (Spring event) + manual bills (rent...), approve,
    partial payments, supplier statement with running balance, "owed to suppliers" on the dashboard; separate from
    the POS cash drawer; Business + Pro. Not chosen: due-date/overdue list, bill file attachments.
-6. Promotions / discounts / price lists
+6. ✅ Promotions: % off / amount off / buy X get Y / order % above an amount; scope all/category/product; dates;
+   coupon codes; price lists per customer group; best single promotion for the customer (never stacked); live
+   server-side price preview at the till and in the sales form; Business + Pro.
 7. Accounting (needs the user's country for tax rules: ask)
 8. HR / payroll
 9. Online payment for plans (Stripe) – later
@@ -124,6 +126,8 @@ questions about which parts they want** (e.g. they do NOT want barcode scanning)
 | Who can do returns | All tenant roles (recorded with who did it) | Claude's default; cashiers handle returns at the counter |
 | Payables model | Bills DRAFT → OPEN (approved, owed) → PAID; append-only supplier payments; one bill per PO (DB unique) | Paper bill may differ from the PO, so drafts are checked first |
 | Module coupling | Purchasing → payables via a Spring `ApplicationEvent` (synchronous, same transaction) | No compile-time dependency from purchasing to payables |
+| Pricing | One `PricingService` for sales, POS and preview; best item promos vs best order promo (larger total wins); order promo spread over lines | Single source of truth; reuses line discounts so returns/reports work unchanged |
+| Promotions access | Everyone can read; ADMIN/MANAGER create/edit; promotions don't count against the cashier limit | Claude's default |
 | Product categories | Free-text `products.category` (suggested from existing values) | Enough for POS tiles; a category table can come later |
 | PostgreSQL version | **`postgres:17`** (pinned major) | Never `latest`. 18's image changed the data directory layout (`PGDATA` under `/var/lib/postgresql/18/...`), and most tutorials use the 17 layout (`/var/lib/postgresql/data`). |
 
@@ -158,8 +162,9 @@ retail-erp/                      ← git root
 │       ├── reports/     sales, products/profit, stock value (plain SQL)
 │       ├── returns/     returns / credit notes (store credit lives in sales/)
 │       ├── payables/    supplier bills, supplier payments, statements
+│       ├── pricing/     price lists, promotions, coupons, PricingService
 │       └── dashboard/
-│   └── src/main/resources/db/migration/   V1..V11 Flyway migrations
+│   └── src/main/resources/db/migration/   V1..V12 Flyway migrations
 │   └── src/test/java/com/retailerp/       IntegrationTest base + auth, isolation, flow tests
 └── frontend/                    ← React app (Vite)
     └── src/ api/ auth/ components/ pages/
@@ -291,12 +296,14 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
   return (one item written off, one restocked) refunded as store credit, credit note page, customer balance.
 - Built feature 5 (Supplier bills) with the user's choices (see §4b). 4 new tests (47 total); browser-checked a draft
   bill from a received PO → approve → partial payment → supplier statement → dashboard "owed to suppliers".
+- Built feature 6 (Promotions) with the user's choices (see §4b). 8 new tests (55 total); browser-checked creating a
+  promotion, the till showing per-line promotions, an invalid coupon refused, and the receipt listing promotions.
 
 ---
 
 ## 12. Current task
 
-Next feature from §4b (Promotions / discounts / price lists): ask the user about its sub-features first.
+Next feature from §4b (Accounting): ask the user about its sub-features first, **including their country** (tax rules).
 Meanwhile: review and merge PR #1, run it locally (README), study `LEARNING.md` (incl. new §8b).
 The original compose task (session 1) was completed by Claude in session 2: `compose.yaml` meets the spec
 (postgres:17, quoted port, named volume, healthcheck, no `version:` key, dev-only defaults).

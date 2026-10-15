@@ -71,13 +71,15 @@ function SalesOrderForm({ order }: { order: SalesOrder | null }) {
   const [customerId, setCustomerId] = useState(order?.customerId ?? '')
   const [warehouseId, setWarehouseId] = useState(order?.warehouseId ?? '')
   const [notes, setNotes] = useState(order?.notes ?? '')
+  const [coupon, setCoupon] = useState(order?.couponCode ?? '')
+  const { has } = useSubscription()
   const [lines, setLines] = useState<EditableLine[]>(order?.lines.map((l) => ({ productId: l.productId, quantity: l.quantity, price: String(l.unitPrice) })) ?? [{ productId: '', quantity: 1, price: '' }])
   const effectiveWarehouse = warehouseId || (activeWarehouses.length === 1 ? activeWarehouses[0].id : '')
 
   const save = useMutation({
     mutationFn: async (confirmNow: boolean) => {
       const body = {
-        customerId: customerId || null, warehouseId: effectiveWarehouse, notes,
+        customerId: customerId || null, warehouseId: effectiveWarehouse, notes, couponCode: coupon.trim() || null,
         lines: lines.map((l) => ({ productId: l.productId, quantity: l.quantity, unitPrice: l.price === '' ? null : Number(l.price) })),
       }
       const saved = order ? await api.put<SalesOrder>(`/api/sales-orders/${order.id}`, body) : await api.post<SalesOrder>('/api/sales-orders', body)
@@ -119,6 +121,7 @@ function SalesOrderForm({ order }: { order: SalesOrder | null }) {
         </div>
         <LinesEditor lines={lines} onChange={setLines} priceLabel="Unit price" defaultPrice={(p) => p.salePrice} />
         <p className="muted">Tax is added per product when the order is saved.</p>
+        {has('PROMOTIONS') && <Field label="Coupon code (optional)"><input value={coupon} onChange={(e) => setCoupon(e.target.value)} /></Field>}
         <Field label="Notes"><textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
         <div className="modal-actions">
           <span className="spacer" />
@@ -177,11 +180,11 @@ export function SalesOrderDetailPage() {
         <table className="table">
           <thead><tr><th>#</th><th>Product</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">Tax %</th><th className="num">Total</th></tr></thead>
           <tbody>
-            {so.lines.map((l) => <tr key={l.lineNo}><td>{l.lineNo}</td><td>{l.sku} · {l.productName}</td><td className="num">{l.quantity}</td><td className="num">{money(l.unitPrice)}</td><td className="num">{l.taxRate}</td><td className="num">{money(l.lineTotal)}</td></tr>)}
+            {so.lines.map((l) => <tr key={l.lineNo}><td>{l.lineNo}</td><td>{l.sku} · {l.productName}{l.promotionName && <small className="promo-tag">{l.promotionName} −{money(l.promoDiscount)}</small>}</td><td className="num">{l.quantity}</td><td className="num">{money(l.unitPrice)}</td><td className="num">{l.taxRate}</td><td className="num">{money(l.lineTotal)}</td></tr>)}
           </tbody>
           <tfoot>
             <tr><td colSpan={5} className="num">Subtotal</td><td className="num">{money(so.subtotal)}</td></tr>
-            {so.discountTotal > 0 && <tr><td colSpan={5} className="num">Discount ({so.discountPercent}%)</td><td className="num">−{money(so.discountTotal)}</td></tr>}
+            {so.discountTotal > 0 && <tr><td colSpan={5} className="num">Discounts{so.discountPercent > 0 ? ` (incl. ${so.discountPercent}% manual)` : ''}{so.couponCode ? ` · coupon ${so.couponCode}` : ''}</td><td className="num">−{money(so.discountTotal)}</td></tr>}
             <tr><td colSpan={5} className="num">Tax</td><td className="num">{money(so.taxTotal)}</td></tr>
             <tr><td colSpan={5} className="num"><strong>Total</strong></td><td className="num"><strong>{money(so.total)}</strong></td></tr>
           </tfoot>

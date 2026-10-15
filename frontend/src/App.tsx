@@ -11,6 +11,7 @@ import { NotInPlan, PlanPage } from './pages/PlanPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { NewReturnPage, ReturnDetailPage, ReturnsPage } from './pages/ReturnPages'
 import { BillDetailPage, BillFormPage, BillsPage, SupplierStatementPage } from './pages/BillPages'
+import { PriceListEditPage, PriceListsPage, PromotionsPage } from './pages/PromotionPages'
 import { PlatformLoginPage, PlatformTenantsPage } from './pages/PlatformPages'
 import { useSubscription } from './auth/useSubscription'
 import { PartiesPage } from './pages/PartiesPage'
@@ -66,6 +67,9 @@ export function App() {
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="users" element={<RequireAuth roles={['ADMIN']}><UsersPage /></RequireAuth>} />
         <Route path="plan" element={<PlanPage />} />
+        <Route path="promotions" element={<RequireModule module="PROMOTIONS" name="Promotions"><PromotionsPage /></RequireModule>} />
+        <Route path="price-lists" element={<RequireAuth roles={MANAGE}><RequireModule module="PROMOTIONS" name="Promotions"><PriceListsPage /></RequireModule></RequireAuth>} />
+        <Route path="price-lists/:id" element={<RequireAuth roles={MANAGE}><RequireModule module="PROMOTIONS" name="Promotions"><PriceListEditPage /></RequireModule></RequireAuth>} />
         <Route path="bills" element={<RequireAuth roles={MANAGE}><RequireModule module="SUPPLIER_BILLS" name="Supplier bills"><BillsPage /></RequireModule></RequireAuth>} />
         <Route path="bills/new" element={<RequireAuth roles={MANAGE}><RequireModule module="SUPPLIER_BILLS" name="Supplier bills"><BillFormPage /></RequireModule></RequireAuth>} />
         <Route path="bills/:id" element={<RequireAuth roles={MANAGE}><RequireModule module="SUPPLIER_BILLS" name="Supplier bills"><BillDetailPage /></RequireModule></RequireAuth>} />
