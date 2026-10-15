@@ -346,6 +346,34 @@ Package [`pos`](backend/src/main/java/com/retailerp/pos), migration `V8__point_o
 
 ---
 
+## 8d. Reports
+
+Package [`reports`](backend/src/main/java/com/retailerp/reports), migration `V9__reports.sql`, page
+[`ReportsPage.tsx`](frontend/src/pages/ReportsPage.tsx).
+
+- **Plain SQL for reporting.** `GROUP BY`, `date_trunc('week', order_date)` and `SUM` are what SQL does best, and
+  nothing needs to be an entity, so `ReportService` uses `JdbcTemplate`. JPA is for changing data; SQL is fine
+  (and faster) for reading aggregates.
+- **No `WHERE tenant_id = ?` in those queries:** Row-Level Security filters every row to the current tenant. Here the
+  "backup" layer does the main job, which is why `TenantIsolationTest` checks RLS with raw SQL.
+- **Cost snapshot:** profit = net sales − cost of goods sold. If we used the product's *current* cost, changing a
+  cost price would rewrite the profit of every past sale. So each sales line stores `unit_cost` when it's created
+  (`ReportsIntegrationTest.profitUsesTheCostAtTheTimeOfSale`). Rows from before V9 were backfilled with the cost at
+  migration time: a data migration (`UPDATE` in Flyway), followed by `SET NOT NULL` once every row has a value.
+- **Partial index** `sales_orders_report_idx ... WHERE status = 'CONFIRMED'`: reports only read confirmed sales by
+  date, so the index only contains those rows.
+- **Stock value** = on-hand quantity × *current* cost price (a simple "standard cost" method; FIFO/average costing
+  would need cost layers per receipt, a later improvement).
+- **SQL injection note:** `date_trunc('%s', ...)` inserts text into SQL, which is normally dangerous. Here the value
+  comes from a Java enum (`DAY/WEEK/MONTH`), never from user text; everything user-provided is a `?` parameter.
+- **CSV export is done in the browser** ([`csv.ts`](frontend/src/components/csv.ts)): the data is already on screen.
+  Values with commas/quotes/newlines are quoted, and a BOM (`\uFEFF`) makes Excel read accents correctly.
+  (Excel in some locales expects `;` instead of `,`; if that bites, the separator can become a setting.)
+- **Print/PDF:** `@media print` hides the menu, tabs and buttons and shows a header with the shop and period;
+  the browser's "Save as PDF" does the rest.
+
+---
+
 ## 9. Frontend
 
 - **Vite** serves the React app in dev with instant reload and builds static files for production. Its proxy

@@ -11,8 +11,8 @@ _Last updated: 2026-10-13_
 
 | | |
 |---|---|
-| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–2 of §4b done (plans, Point of Sale) |
-| **Last thing done** | Point of Sale (till screen, shifts, discounts, receipts; 32 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
+| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–3 of §4b done (plans, Point of Sale, Reports) |
+| **Last thing done** | Reports (sales by period, products & profit, stock value, CSV, print; 36 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
 | **Pending / open** | User reviews/merges PR [yacingstar/retail-erp#1](https://github.com/yacingstar/retail-erp/pull/1). |
 | **Next step** | Next feature from §4b. **Before each feature, ask the user which sub-features they want** (their rule). |
 
@@ -67,7 +67,8 @@ questions about which parts they want** (e.g. they do NOT want barcode scanning)
 1. ✅ Plans / tiers / add-ons + platform admin panel
 2. ✅ Point of Sale: tiles + categories + search, cash change, printable receipt, shifts with cash count, manual
    discounts (cashiers ≤ 10%), in Business + Pro. Not chosen: barcode scanner, split payment.
-3. Reports (sales by product/period, stock value, export)
+3. ✅ Reports: sales by period (day/week/month), best sellers + profit & margins, stock value; CSV + print/PDF;
+   managers/admins only; in Business + Pro. Not chosen: by category, by cashier, aging, by supplier, charts.
 4. Returns / refunds / credit notes
 5. Supplier bills (what we owe suppliers)
 6. Promotions / discounts / price lists
@@ -113,6 +114,9 @@ questions about which parts they want** (e.g. they do NOT want barcode scanning)
 | Platform admin | Separate table + login, JWT role `PLATFORM_ADMIN` without tenant; first admin from `PLATFORM_ADMIN_EMAIL`/`PLATFORM_ADMIN_PASSWORD` | Platform staff aren't tenant users; no secrets in git |
 | POS | Checkout = sales order + confirm + payment in one transaction; one open shift per cashier; cash/card only at the till | Reuses sales/stock/invoicing instead of a parallel model |
 | Discounts | Order-level % on every line, tax on discounted amount; cashiers ≤ 10% (`app.pos.cashier-max-discount-percent`), managers unlimited | Claude's default for "manual discount"; user can change the limit |
+| Profit cost basis | `sales_order_lines.unit_cost` snapshot at sale time (pre-V9 lines backfilled with cost at migration) | Past profit must not change when cost prices change |
+| Stock valuation | Quantity × current cost price | Simple; FIFO/average costing would need cost layers |
+| Reports access | ADMIN + MANAGER only (profit is sensitive); CSV built in the browser | User didn't specify; Claude's default |
 | Product categories | Free-text `products.category` (suggested from existing values) | Enough for POS tiles; a category table can come later |
 | PostgreSQL version | **`postgres:17`** (pinned major) | Never `latest`. 18's image changed the data directory layout (`PGDATA` under `/var/lib/postgresql/18/...`), and most tutorials use the 17 layout (`/var/lib/postgresql/data`). |
 
@@ -144,8 +148,9 @@ retail-erp/                      ← git root
 │       ├── subscription/ modules, plans, entitlements, @RequiresModule
 │       ├── platform/    platform admin login, tenant list, plan assignment
 │       ├── pos/         Point of Sale: shifts, checkout, receipts
+│       ├── reports/     sales, products/profit, stock value (plain SQL)
 │       └── dashboard/
-│   └── src/main/resources/db/migration/   V1..V8 Flyway migrations
+│   └── src/main/resources/db/migration/   V1..V9 Flyway migrations
 │   └── src/test/java/com/retailerp/       IntegrationTest base + auth, isolation, flow tests
 └── frontend/                    ← React app (Vite)
     └── src/ api/ auth/ components/ pages/
@@ -270,11 +275,15 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
 - Built feature 2 (Point of Sale) with the user's choices (see §4b). 6 new tests (32 total); browser-checked
   open shift → tiles → discount → cash change → receipt → close shift with cash difference.
 
+### 2026-10-15: Session 3 (continued after a container restart)
+- Built feature 3 (Reports) with the user's choices (see §4b). 4 new tests (36 total); browser-checked all three
+  tabs, CSV download (accents OK in Excel via BOM) and the print layout.
+
 ---
 
 ## 12. Current task
 
-Next feature from §4b (Reports): ask the user about its sub-features first.
+Next feature from §4b (Returns / refunds / credit notes): ask the user about its sub-features first.
 Meanwhile: review and merge PR #1, run it locally (README), study `LEARNING.md` (incl. new §8b).
 The original compose task (session 1) was completed by Claude in session 2: `compose.yaml` meets the spec
 (postgres:17, quoted port, named volume, healthcheck, no `version:` key, dev-only defaults).

@@ -234,7 +234,7 @@ export interface Dashboard {
   recentSales: SalesOrderSummary[]
 }
 
-export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE'
+export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS'
 
 export interface PlanInfo {
   code: string
@@ -311,4 +311,51 @@ export interface Receipt {
   paymentMethod: PaymentMethod
   cashReceived: number | null
   change: number
+}
+
+export type ReportPeriod = 'DAY' | 'WEEK' | 'MONTH'
+
+export interface SalesReportRow {
+  period: string | null
+  orders: number
+  grossSales: number
+  discounts: number
+  netSales: number
+  tax: number
+  total: number
+  averageSale: number
+}
+
+export interface SalesReport {
+  from: string
+  to: string
+  groupBy: ReportPeriod
+  rows: SalesReportRow[]
+  totals: SalesReportRow
+}
+
+export interface ProductReportRow {
+  productId: string | null
+  sku: string | null
+  name: string
+  category: string | null
+  quantity: number
+  netSales: number
+  cost: number
+  grossProfit: number
+  marginPercent: number
+}
+
+export interface ProductReport {
+  from: string
+  to: string
+  rows: ProductReportRow[]
+  totals: ProductReportRow
+}
+
+export interface StockValueReport {
+  rows: { productId: string; sku: string; name: string; category: string | null; warehouseId: string; warehouseCode: string; quantity: number; unitCost: number; value: number }[]
+  byWarehouse: { name: string; quantity: number; value: number }[]
+  byCategory: { name: string; quantity: number; value: number }[]
+  totalValue: number
 }

@@ -14,6 +14,7 @@ const NAV: { to: string; label: string; roles?: Role[]; module?: Module }[] = [
   { to: '/purchase-orders', label: 'Purchasing', roles: ['ADMIN', 'MANAGER'], module: 'PURCHASING' },
   { to: '/suppliers', label: 'Suppliers', roles: ['ADMIN', 'MANAGER'], module: 'PURCHASING' },
   { to: '/warehouses', label: 'Warehouses', module: 'INVENTORY' },
+  { to: '/reports', label: 'Reports', roles: ['ADMIN', 'MANAGER'], module: 'REPORTS' },
   { to: '/users', label: 'Users', roles: ['ADMIN'] },
   { to: '/plan', label: 'Plan' },
 ]

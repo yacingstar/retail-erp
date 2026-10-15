@@ -8,6 +8,7 @@ import { LoginPage, RegisterPage } from './pages/AuthPages'
 import { DashboardPage } from './pages/DashboardPage'
 import { InvoiceDetailPage, InvoicesPage } from './pages/InvoicePages'
 import { NotInPlan, PlanPage } from './pages/PlanPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { PlatformLoginPage, PlatformTenantsPage } from './pages/PlatformPages'
 import { useSubscription } from './auth/useSubscription'
 import { PartiesPage } from './pages/PartiesPage'
@@ -63,6 +64,7 @@ export function App() {
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="users" element={<RequireAuth roles={['ADMIN']}><UsersPage /></RequireAuth>} />
         <Route path="plan" element={<PlanPage />} />
+        <Route path="reports" element={<RequireAuth roles={MANAGE}><RequireModule module="REPORTS" name="Reports"><ReportsPage /></RequireModule></RequireAuth>} />
         <Route path="pos" element={<RequireModule module="POINT_OF_SALE" name="Point of Sale"><PosPage /></RequireModule>} />
         <Route path="pos/shifts" element={<RequireAuth roles={MANAGE}><RequireModule module="POINT_OF_SALE" name="Point of Sale"><ShiftsPage /></RequireModule></RequireAuth>} />
       </Route>

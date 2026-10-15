@@ -188,3 +188,16 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #c7d8fb; border-c
 .receipt .r-total { font-weight: 700; font-size: 15px; }
 .receipt .r-line { margin-bottom: 4px; }
 @media (max-width: 1000px) { .pos-layout { grid-template-columns: 1fr; } .pos-cart { position: static; } }
+
+/* --- Reports --- */
+.total-row td { font-weight: 700; border-top: 2px solid var(--border); }
+.report-stats { margin-bottom: 12px; }
+.small-note { font-size: 12px; margin: 10px 0 0; }
+.print-only { display: none; }
+@media print {
+  .print-only { display: block; margin-bottom: 8px; }
+  .toolbar.no-print, .tabs { display: none !important; }
+  .grid-2 { display: block; }
+  .table { font-size: 11px; }
+}
+.toolbar .actions input[type="date"], .toolbar .actions select { width: auto; }
