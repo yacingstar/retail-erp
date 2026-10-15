@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, query } from '../api/client'
-import type { Page, Party } from '../api/types'
+import type { Page, Party, StoreCredit } from '../api/types'
+import { date, label, money } from '../components/format'
 import { useAuth } from '../auth/AuthContext'
 import { Badge, Empty, ErrorBox, Field, fieldError, Loading, Modal, PageHeader, Pagination, SearchBox, useDebounced } from '../components/ui'
 
@@ -73,6 +74,7 @@ function PartyForm({ kind, party, canDelete, onClose }: { kind: string; party: P
         </div>
         <Field label="Address"><textarea rows={2} value={form.address} onChange={set('address')} /></Field>
         <Field label="Notes"><textarea rows={2} value={form.notes} onChange={set('notes')} /></Field>
+        {kind === 'customers' && party && <StoreCreditInfo customerId={party.id} />}
         <div className="modal-actions">
           {party && canDelete && <button type="button" className="btn btn-danger" onClick={() => confirm('Delete? Records with orders can only be deactivated.') && remove.mutate()}>Delete</button>}
           <span className="spacer" />
@@ -81,5 +83,18 @@ function PartyForm({ kind, party, canDelete, onClose }: { kind: string; party: P
         </div>
       </form>
     </Modal>
+  )
+}
+
+function StoreCreditInfo({ customerId }: { customerId: string }) {
+  const credit = useQuery({ queryKey: ['store-credit', customerId], queryFn: () => api.get<StoreCredit>(`/api/customers/${customerId}/store-credit`) })
+  if (!credit.data) return null
+  return (
+    <div className="store-credit">
+      <strong>Store credit: {money(credit.data.balance)}</strong>
+      {credit.data.entries.slice(0, 5).map((e, i) => (
+        <div key={i} className="muted">{date(e.createdAt)} · {e.note ?? label(e.reason)} · <span className={e.amount < 0 ? 'neg' : 'pos'}>{e.amount > 0 ? '+' : ''}{money(e.amount)}</span></div>
+      ))}
+    </div>
   )
 }

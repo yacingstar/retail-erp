@@ -11,8 +11,8 @@ _Last updated: 2026-10-13_
 
 | | |
 |---|---|
-| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–3 of §4b done (plans, Point of Sale, Reports) |
-| **Last thing done** | Reports (sales by period, products & profit, stock value, CSV, print; 36 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
+| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–4 of §4b done (plans, Point of Sale, Reports, Returns) |
+| **Last thing done** | Returns (credit notes, refunds, store credit; 43 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
 | **Pending / open** | User reviews/merges PR [yacingstar/retail-erp#1](https://github.com/yacingstar/retail-erp/pull/1). |
 | **Next step** | Next feature from §4b. **Before each feature, ask the user which sub-features they want** (their rule). |
 
@@ -69,7 +69,8 @@ questions about which parts they want** (e.g. they do NOT want barcode scanning)
    discounts (cashiers ≤ 10%), in Business + Pro. Not chosen: barcode scanner, split payment.
 3. ✅ Reports: sales by period (day/week/month), best sellers + profit & margins, stock value; CSV + print/PDF;
    managers/admins only; in Business + Pro. Not chosen: by category, by cashier, aging, by supplier, charts.
-4. Returns / refunds / credit notes
+4. ✅ Returns: partial returns (pick items/quantities), refund by cash/card/store credit, restock-or-write-off per
+   item, credit notes (CN-…), store credit spendable on invoices and at the POS; all plans.
 5. Supplier bills (what we owe suppliers)
 6. Promotions / discounts / price lists
 7. Accounting (needs the user's country for tax rules: ask)
@@ -117,6 +118,8 @@ questions about which parts they want** (e.g. they do NOT want barcode scanning)
 | Profit cost basis | `sales_order_lines.unit_cost` snapshot at sale time (pre-V9 lines backfilled with cost at migration) | Past profit must not change when cost prices change |
 | Stock valuation | Quantity × current cost price | Simple; FIFO/average costing would need cost layers |
 | Reports access | ADMIN + MANAGER only (profit is sensitive); CSV built in the browser | User didn't specify; Claude's default |
+| Returns model | Credit note per return; invoice amount_credited/amount_refunded; refund only what was paid; store credit as a ledger | Never edit sales/invoices; works for paid and unpaid invoices |
+| Who can do returns | All tenant roles (recorded with who did it) | Claude's default; cashiers handle returns at the counter |
 | Product categories | Free-text `products.category` (suggested from existing values) | Enough for POS tiles; a category table can come later |
 | PostgreSQL version | **`postgres:17`** (pinned major) | Never `latest`. 18's image changed the data directory layout (`PGDATA` under `/var/lib/postgresql/18/...`), and most tutorials use the 17 layout (`/var/lib/postgresql/data`). |
 
@@ -149,8 +152,9 @@ retail-erp/                      ← git root
 │       ├── platform/    platform admin login, tenant list, plan assignment
 │       ├── pos/         Point of Sale: shifts, checkout, receipts
 │       ├── reports/     sales, products/profit, stock value (plain SQL)
+│       ├── returns/     returns / credit notes (store credit lives in sales/)
 │       └── dashboard/
-│   └── src/main/resources/db/migration/   V1..V9 Flyway migrations
+│   └── src/main/resources/db/migration/   V1..V10 Flyway migrations
 │   └── src/test/java/com/retailerp/       IntegrationTest base + auth, isolation, flow tests
 └── frontend/                    ← React app (Vite)
     └── src/ api/ auth/ components/ pages/
@@ -278,12 +282,14 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
 ### 2026-10-15: Session 3 (continued after a container restart)
 - Built feature 3 (Reports) with the user's choices (see §4b). 4 new tests (36 total); browser-checked all three
   tabs, CSV download (accents OK in Excel via BOM) and the print layout.
+- Built feature 4 (Returns) with the user's choices (see §4b). 7 new tests (43 total); browser-checked a partial
+  return (one item written off, one restocked) refunded as store credit, credit note page, customer balance.
 
 ---
 
 ## 12. Current task
 
-Next feature from §4b (Returns / refunds / credit notes): ask the user about its sub-features first.
+Next feature from §4b (Supplier bills): ask the user about its sub-features first.
 Meanwhile: review and merge PR #1, run it locally (README), study `LEARNING.md` (incl. new §8b).
 The original compose task (session 1) was completed by Claude in session 2: `compose.yaml` meets the spec
 (postgres:17, quoted port, named volume, healthcheck, no `version:` key, dev-only defaults).

@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, query } from '../api/client'
-import type { Page, Party, Product, Receipt, Shift, StockLevel, Warehouse } from '../api/types'
+import type { Page, Party, Product, Receipt, Shift, StockLevel, StoreCredit, Warehouse } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { dateTime, label, money } from '../components/format'
 import { ErrorBox, Field, Loading, Modal, PageHeader, useDebounced } from '../components/ui'
@@ -81,7 +81,7 @@ function Till({ shift }: { shift: Shift }) {
   const [cart, setCart] = useState<CartLine[]>([])
   const [customerId, setCustomerId] = useState('')
   const [discount, setDiscount] = useState('')
-  const [method, setMethod] = useState<'CASH' | 'CARD'>('CASH')
+  const [method, setMethod] = useState<'CASH' | 'CARD' | 'STORE_CREDIT'>('CASH')
   const [cashReceived, setCashReceived] = useState('')
   const [receipt, setReceipt] = useState<Receipt | null>(null)
   const [closing, setClosing] = useState(false)
@@ -98,6 +98,11 @@ function Till({ shift }: { shift: Shift }) {
     queryFn: () => api.get<StockLevel[]>(`/api/stock/levels${query({ warehouseId: shift.warehouseId })}`),
   })
   const customers = useQuery({ queryKey: ['customers', 'all'], queryFn: () => api.get<Page<Party>>('/api/customers?size=1000') })
+  const credit = useQuery({
+    queryKey: ['store-credit', customerId],
+    queryFn: () => api.get<StoreCredit>(`/api/customers/${customerId}/store-credit`),
+    enabled: !!customerId,
+  })
   const onHand = useMemo(() => new Map((stock.data ?? []).map((l) => [l.productId, l.quantity])), [stock.data])
 
   const discountPercent = Math.min(100, Math.max(0, Number(discount) || 0))
@@ -126,7 +131,7 @@ function Till({ shift }: { shift: Shift }) {
     onSuccess: (r) => {
       setReceipt(r)
       reset()
-      for (const key of ['stock', 'pos', 'sales-orders', 'invoices', 'dashboard']) queryClient.invalidateQueries({ queryKey: [key] })
+      for (const key of ['stock', 'pos', 'sales-orders', 'invoices', 'dashboard', 'store-credit']) queryClient.invalidateQueries({ queryKey: [key] })
     },
   })
 
@@ -162,7 +167,7 @@ function Till({ shift }: { shift: Shift }) {
         </section>
 
         <section className="card pos-cart">
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}>
+          <select value={customerId} onChange={(e) => { setCustomerId(e.target.value); if (!e.target.value && method === 'STORE_CREDIT') setMethod('CASH') }}>
             <option value="">Walk-in customer</option>
             {customers.data?.content.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -198,6 +203,7 @@ function Till({ shift }: { shift: Shift }) {
           <div className="tabs pay-method">
             <button className={method === 'CASH' ? 'active' : ''} onClick={() => setMethod('CASH')}>Cash</button>
             <button className={method === 'CARD' ? 'active' : ''} onClick={() => setMethod('CARD')}>Card</button>
+            {customerId && <button className={method === 'STORE_CREDIT' ? 'active' : ''} onClick={() => setMethod('STORE_CREDIT')}>Store credit</button>}
           </div>
           {method === 'CASH' && (
             <div className="cash">
@@ -211,6 +217,9 @@ function Till({ shift }: { shift: Shift }) {
                 <div className={`change ${change < 0 ? 'neg' : ''}`}>{change < 0 ? `Missing ${money(-change)}` : `Change: ${money(change)}`}</div>
               )}
             </div>
+          )}
+          {method === 'STORE_CREDIT' && credit.data && (
+            <div className={credit.data.balance < t.total ? 'change neg' : 'muted'}>Store credit available: {money(credit.data.balance)}</div>
           )}
           <ErrorBox error={checkout.error} />
           <button className="btn btn-primary pay" disabled={cannotPay} onClick={() => checkout.mutate()}>
@@ -314,6 +323,7 @@ export function ShiftSummary({ shift: s }: { shift: Shift }) {
       <div><small>Sales</small>{s.salesCount} · {money(s.salesTotal)}</div>
       <div><small>By method</small>{s.payments.map((p) => `${label(p.method)} ${money(p.amount)}`).join(', ') || '—'}</div>
       <div><small>Opening cash</small>{money(s.openingCash)}</div>
+      {s.cashRefunds > 0 && <div><small>Cash refunds</small>−{money(s.cashRefunds)}</div>}
       <div><small>Expected cash</small>{money(s.expectedCash)}</div>
       <div><small>Counted cash</small>{s.countedCash === null ? '—' : money(s.countedCash)}</div>
       <div><small>Difference</small>{s.difference === null ? '—' : <span className={s.difference < 0 ? 'neg' : s.difference > 0 ? 'pos' : ''}>{money(s.difference)}</span>}</div>

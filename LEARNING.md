@@ -374,6 +374,36 @@ Package [`reports`](backend/src/main/java/com/retailerp/reports), migration `V9_
 
 ---
 
+## 8e. Returns, credit notes and store credit
+
+Packages [`returns`](backend/src/main/java/com/retailerp/returns) and `sales` (store credit), migration
+`V10__returns_and_store_credit.sql`.
+
+- **A return is a document, never an edit.** The sale and its invoice stay as they were; a **credit note**
+  (`CN-000001`) records what came back. Like stock, history is never rewritten: the sale says "sold 3", the return
+  says "2 came back".
+- **Invoice maths:** `outstanding = total − paid − credited` and `refund due = paid + credited − total − refunded`.
+  So a return on an **unpaid** invoice just lowers what's owed (no money moves); on a **paid** one, money is due
+  back, by cash, card or store credit. A fully credited unpaid invoice gets the status `CREDITED`.
+- **Partial returns and rounding:** each returned line gets its proportional share of the original line (subtotal,
+  discount, tax). When the *last* remaining units come back, the amount is "original − already returned" instead,
+  so several partial returns always add up to exactly the original total, to the cent
+  (`ReturnsIntegrationTest.partialReturnsOfAPaidSaleRefundExactlyTheTotal`).
+- **Concurrency:** the invoice row is locked (`SELECT ... FOR UPDATE`) before reading what was already returned, so
+  two cashiers can't return the same item twice at the same moment.
+- **Restock or write off:** resellable items get a `SALE_RETURN` stock movement; damaged ones don't (and in the
+  profit report their cost stays a cost: the loss is real).
+- **Store credit is a ledger** (`store_credit_entries`): `+` when given, `−` when spent, balance = `SUM`. Spending
+  takes an advisory lock per customer, the same check-then-insert protection as stock.
+- **`@Immutable` + build-then-save:** the credit note is fully built in memory (lines, totals, refund) and saved once.
+  Hibernate never updates an `@Immutable` entity, and the database role has no UPDATE privilege on it either.
+- **Cash refunds at the till** are linked to the cashier's open shift, so the expected cash in the drawer drops by
+  the refund.
+- **Reports are net of returns,** counted on the day the return happens (so a past month's report doesn't change
+  when something comes back later).
+
+---
+
 ## 9. Frontend
 
 - **Vite** serves the React app in dev with instant reload and builds static files for production. Its proxy

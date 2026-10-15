@@ -70,8 +70,8 @@ function SalesTab({ from, to }: { from: string; to: string }) {
   })
   const r = report.data
   const exportCsv = () => r && downloadCsv(`sales_${from}_${to}.csv`,
-    ['Period', 'Orders', 'Gross sales', 'Discounts', 'Net sales', 'Tax', 'Total', 'Average sale'],
-    r.rows.map((x) => [x.period, x.orders, x.grossSales, x.discounts, x.netSales, x.tax, x.total, x.averageSale]))
+    ['Period', 'Orders', 'Gross sales', 'Discounts', 'Returns', 'Net sales', 'Tax', 'Total', 'Average sale'],
+    r.rows.map((x) => [x.period, x.orders, x.grossSales, x.discounts, x.returns, x.netSales, x.tax, x.total, x.averageSale]))
   const periodLabel = (p: string | null) => {
     if (!p) return ''
     const d = new Date(`${p}T00:00:00`)
@@ -93,12 +93,12 @@ function SalesTab({ from, to }: { from: string; to: string }) {
       <ErrorBox error={report.error} />
       {report.isLoading ? <Loading /> : !r || r.rows.length === 0 ? <Empty>No confirmed sales in this period.</Empty> : (
         <table className="table">
-          <thead><tr><th>Period</th><th className="num">Orders</th><th className="num">Gross sales</th><th className="num">Discounts</th><th className="num">Net sales</th><th className="num">Tax</th><th className="num">Total</th><th className="num">Avg. sale</th></tr></thead>
+          <thead><tr><th>Period</th><th className="num">Orders</th><th className="num">Gross sales</th><th className="num">Discounts</th><th className="num">Returns</th><th className="num">Net sales</th><th className="num">Tax</th><th className="num">Total</th><th className="num">Avg. sale</th></tr></thead>
           <tbody>
             {r.rows.map((x) => (
               <tr key={x.period}>
                 <td>{periodLabel(x.period)}</td><td className="num">{x.orders}</td><td className="num">{money(x.grossSales)}</td>
-                <td className="num">{money(x.discounts)}</td><td className="num">{money(x.netSales)}</td><td className="num">{money(x.tax)}</td>
+                <td className="num">{money(x.discounts)}</td><td className="num">{money(x.returns)}</td><td className="num">{money(x.netSales)}</td><td className="num">{money(x.tax)}</td>
                 <td className="num">{money(x.total)}</td><td className="num">{money(x.averageSale)}</td>
               </tr>
             ))}
@@ -106,13 +106,13 @@ function SalesTab({ from, to }: { from: string; to: string }) {
           <tfoot>
             <tr className="total-row">
               <td>Total</td><td className="num">{r.totals.orders}</td><td className="num">{money(r.totals.grossSales)}</td>
-              <td className="num">{money(r.totals.discounts)}</td><td className="num">{money(r.totals.netSales)}</td><td className="num">{money(r.totals.tax)}</td>
+              <td className="num">{money(r.totals.discounts)}</td><td className="num">{money(r.totals.returns)}</td><td className="num">{money(r.totals.netSales)}</td><td className="num">{money(r.totals.tax)}</td>
               <td className="num">{money(r.totals.total)}</td><td className="num">{money(r.totals.averageSale)}</td>
             </tr>
           </tfoot>
         </table>
       )}
-      <p className="muted small-note">Net sales = gross − discounts, before tax. Cancelled sales are not counted.</p>
+      <p className="muted small-note">Net sales = gross − discounts − returns, before tax. Returns count on the day they happen. Cancelled sales are not counted.</p>
     </div>
   )
 }
@@ -169,7 +169,7 @@ function ProductsTab({ from, to }: { from: string; to: string }) {
           </tfoot>
         </table>
       )}
-      <p className="muted small-note">Cost uses each product's cost price at the time of the sale. Margin = gross profit ÷ net sales.</p>
+      <p className="muted small-note">Net of returns. Cost uses each product's cost price at the time of the sale (returned items put back in stock reverse their cost). Margin = gross profit ÷ net sales.</p>
     </div>
   )
 }

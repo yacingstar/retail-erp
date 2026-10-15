@@ -8,6 +8,8 @@ import { date, dateTime, money } from '../components/format'
 import { LinesEditor, type EditableLine } from '../components/LinesEditor'
 import { Badge, Empty, ErrorBox, Field, Loading, PageHeader, Pagination, SearchBox, useDebounced } from '../components/ui'
 import { MovementsTable } from './StockPage'
+import { SaleReturns } from './ReturnPages'
+import { useSubscription } from '../auth/useSubscription'
 
 const STATUSES: SalesOrderStatus[] = ['DRAFT', 'CONFIRMED', 'CANCELLED']
 
@@ -134,6 +136,7 @@ export function SalesOrderDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { hasRole } = useAuth()
+  const subscription = useSubscription()
   const location = useLocation()
   const initialError = (location.state as { error?: string } | null)?.error ?? null
   const order = useQuery({ queryKey: ['sales-orders', id], queryFn: () => api.get<SalesOrder>(`/api/sales-orders/${id}`) })
@@ -185,6 +188,7 @@ export function SalesOrderDetailPage() {
         </table>
         {so.notes && <p className="muted">{so.notes}</p>}
       </div>
+      {so.status === 'CONFIRMED' && subscription.has('RETURNS') && <SaleReturns salesOrderId={so.id} canReturn />}
       {so.movements.length > 0 && <div className="card"><h2>Stock movements</h2><MovementsTable movements={so.movements} /></div>}
     </>
   )

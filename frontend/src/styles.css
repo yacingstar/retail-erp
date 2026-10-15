@@ -201,3 +201,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #c7d8fb; border-c
   .table { font-size: 11px; }
 }
 .toolbar .actions input[type="date"], .toolbar .actions select { width: auto; }
+
+/* --- Returns --- */
+.checkbox.inline { margin: 0; }
+.store-credit { background: #f6f3fd; border: 1px solid #e3dbf6; border-radius: 6px; padding: 8px 10px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 2px; }

@@ -2,13 +2,13 @@ import { useState, type FormEvent } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { api, query } from '../api/client'
-import type { Invoice, InvoiceStatus, InvoiceSummary, Page, PaymentMethod } from '../api/types'
+import type { Invoice, InvoiceStatus, InvoiceSummary, Page, PaymentMethod, StoreCredit } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { date, dateTime, label, money } from '../components/format'
 import { Badge, Empty, ErrorBox, Field, fieldError, Loading, PageHeader, Pagination, SearchBox, useDebounced } from '../components/ui'
 
-const STATUSES: InvoiceStatus[] = ['ISSUED', 'PARTIALLY_PAID', 'PAID', 'VOID']
-const METHODS: PaymentMethod[] = ['CASH', 'CARD', 'BANK_TRANSFER', 'OTHER']
+const STATUSES: InvoiceStatus[] = ['ISSUED', 'PARTIALLY_PAID', 'PAID', 'CREDITED', 'VOID']
+const METHODS: PaymentMethod[] = ['CASH', 'CARD', 'BANK_TRANSFER', 'OTHER', 'STORE_CREDIT']
 
 export function InvoicesPage() {
   const [q, setQ] = useState('')
@@ -88,6 +88,8 @@ export function InvoiceDetailPage() {
             <tr><td colSpan={4} className="num">Tax</td><td className="num">{money(inv.taxTotal)}</td></tr>
             <tr><td colSpan={4} className="num"><strong>Total</strong></td><td className="num"><strong>{money(inv.total)}</strong></td></tr>
             <tr><td colSpan={4} className="num">Paid</td><td className="num">{money(inv.amountPaid)}</td></tr>
+            {inv.amountCredited > 0 && <tr><td colSpan={4} className="num">Credited (returns)</td><td className="num">−{money(inv.amountCredited)}</td></tr>}
+            {inv.amountRefunded > 0 && <tr><td colSpan={4} className="num">Refunded</td><td className="num">{money(inv.amountRefunded)}</td></tr>}
             <tr><td colSpan={4} className="num"><strong>Balance due</strong></td><td className="num"><strong>{money(inv.balanceDue)}</strong></td></tr>
           </tfoot>
         </table>
@@ -113,12 +115,18 @@ function PaymentForm({ invoice }: { invoice: Invoice }) {
   const [amount, setAmount] = useState(String(invoice.balanceDue))
   const [method, setMethod] = useState<PaymentMethod>('CASH')
   const [reference, setReference] = useState('')
+  const credit = useQuery({
+    queryKey: ['store-credit', invoice.customerId],
+    queryFn: () => api.get<StoreCredit>(`/api/customers/${invoice.customerId}/store-credit`),
+    enabled: method === 'STORE_CREDIT' && !!invoice.customerId,
+  })
   const pay = useMutation({
     mutationFn: () => api.post<Invoice>(`/api/invoices/${invoice.id}/payments`, { amount: Number(amount), method, reference: reference || null }),
     onSuccess: (updated) => {
       queryClient.setQueryData(['invoices', invoice.id], updated)
       queryClient.invalidateQueries({ queryKey: ['invoices'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['store-credit'] })
       setAmount(String(updated.balanceDue))
       setReference('')
     },
@@ -130,9 +138,12 @@ function PaymentForm({ invoice }: { invoice: Invoice }) {
       <div className="form-grid">
         <Field label="Amount" error={fieldError(pay.error, 'amount')}><input type="number" step="0.01" min="0.01" max={invoice.balanceDue} value={amount} onChange={(e) => setAmount(e.target.value)} required /></Field>
         <Field label="Method">
-          <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>{METHODS.map((m) => <option key={m} value={m}>{label(m)}</option>)}</select>
+          <select value={method} onChange={(e) => setMethod(e.target.value as PaymentMethod)}>
+            {METHODS.filter((m) => m !== 'STORE_CREDIT' || invoice.customerId).map((m) => <option key={m} value={m}>{label(m)}</option>)}
+          </select>
         </Field>
       </div>
+      {method === 'STORE_CREDIT' && credit.data && <p className="muted">Available store credit: {money(credit.data.balance)}</p>}
       <Field label="Reference"><input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="Receipt / transaction no." /></Field>
       <button className="btn btn-primary" disabled={pay.isPending}>Record payment</button>
     </form>

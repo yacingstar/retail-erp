@@ -179,8 +179,8 @@ export interface SalesOrder extends SalesOrderSummary {
   movements: Movement[]
 }
 
-export type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'VOID'
-export type PaymentMethod = 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'OTHER'
+export type InvoiceStatus = 'ISSUED' | 'PARTIALLY_PAID' | 'PAID' | 'CREDITED' | 'VOID'
+export type PaymentMethod = 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'OTHER' | 'STORE_CREDIT'
 
 export interface InvoiceSummary {
   id: string
@@ -206,6 +206,8 @@ export interface Payment {
 }
 
 export interface Invoice extends InvoiceSummary {
+  amountCredited: number
+  amountRefunded: number
   customerEmail: string | null
   customerAddress: string | null
   subtotal: number
@@ -234,7 +236,7 @@ export interface Dashboard {
   recentSales: SalesOrderSummary[]
 }
 
-export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS'
+export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS'
 
 export interface PlanInfo {
   code: string
@@ -287,6 +289,7 @@ export interface Shift {
   salesCount: number
   salesTotal: number
   payments: { method: PaymentMethod; amount: number }[]
+  cashRefunds: number
   expectedCash: number
   countedCash: number | null
   difference: number | null
@@ -320,6 +323,7 @@ export interface SalesReportRow {
   orders: number
   grossSales: number
   discounts: number
+  returns: number
   netSales: number
   tax: number
   total: number
@@ -358,4 +362,68 @@ export interface StockValueReport {
   byWarehouse: { name: string; quantity: number; value: number }[]
   byCategory: { name: string; quantity: number; value: number }[]
   totalValue: number
+}
+
+export interface ReturnableLine {
+  salesOrderLineId: string
+  lineNo: number
+  productId: string
+  sku: string
+  productName: string
+  sold: number
+  returned: number
+  returnable: number
+  unitPrice: number
+  unitRefund: number
+}
+
+export interface Returnable {
+  salesOrderId: string
+  salesOrderNumber: string
+  customerId: string | null
+  customerName: string | null
+  invoiceNumber: string
+  invoiceTotal: number
+  amountPaid: number
+  lines: ReturnableLine[]
+}
+
+export interface ReturnSummary {
+  id: string
+  number: string
+  returnDate: string
+  salesOrderId: string
+  salesOrderNumber: string | null
+  customerName: string | null
+  total: number
+  refundAmount: number
+  refundMethod: PaymentMethod | null
+}
+
+export interface SalesReturn {
+  id: string
+  number: string
+  returnDate: string
+  salesOrderId: string
+  salesOrderNumber: string
+  invoiceId: string
+  invoiceNumber: string
+  customerId: string | null
+  customerName: string | null
+  warehouseCode: string
+  reason: string | null
+  subtotal: number
+  discountTotal: number
+  taxTotal: number
+  total: number
+  refundAmount: number
+  refundMethod: PaymentMethod | null
+  lines: { productId: string; sku: string; productName: string; quantity: number; restock: boolean; lineSubtotal: number; lineDiscount: number; lineTax: number; lineTotal: number }[]
+  createdAt: string
+}
+
+export interface StoreCredit {
+  customerId: string
+  balance: number
+  entries: { amount: number; reason: 'RETURN_REFUND' | 'PAYMENT'; referenceId: string | null; note: string | null; createdAt: string }[]
 }

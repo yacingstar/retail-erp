@@ -8,6 +8,7 @@ const NAV: { to: string; label: string; roles?: Role[]; module?: Module }[] = [
   { to: '/pos', label: 'Point of Sale', module: 'POINT_OF_SALE' },
   { to: '/sales-orders', label: 'Sales', module: 'SALES' },
   { to: '/invoices', label: 'Invoices', module: 'INVOICING' },
+  { to: '/returns', label: 'Returns', module: 'RETURNS' },
   { to: '/customers', label: 'Customers', module: 'SALES' },
   { to: '/products', label: 'Products', module: 'INVENTORY' },
   { to: '/stock', label: 'Stock', module: 'INVENTORY' },
