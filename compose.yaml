@@ -1,0 +1,25 @@
+# Local development infrastructure. Start with: docker compose up -d
+# Values come from a .env file next to this one (copy .env.example), or fall back to the dev defaults below.
+services:
+  postgres:
+    image: postgres:17
+    container_name: retail-erp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-retail_erp}
+      # This is the "owner/admin" account: Flyway uses it to create tables. The app itself connects as a
+      # separate, less-privileged role (erp_app) that the first migration creates, so Row-Level Security applies to it.
+      POSTGRES_USER: ${DB_ADMIN_USER:-erp_owner}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:-erp_owner_dev_password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:
