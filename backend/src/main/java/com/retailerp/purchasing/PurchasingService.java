@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,9 +38,11 @@ public class PurchasingService {
     private final CatalogService catalog;
     private final StockService stock;
     private final DocumentNumberService numbers;
+    private final ApplicationEventPublisher events;
 
     public PurchasingService(SupplierRepository suppliers, PurchaseOrderRepository orders, CatalogService catalog, StockService stock,
-            DocumentNumberService numbers) {
+            DocumentNumberService numbers, ApplicationEventPublisher events) {
+        this.events = events;
         this.suppliers = suppliers;
         this.orders = orders;
         this.catalog = catalog;
@@ -129,6 +132,8 @@ public class PurchasingService {
             line.getProduct().updateCostPrice(line.getUnitCost());
         }
         orders.flush();
+        // Tell whoever is interested (e.g. supplier bills) without knowing who they are.
+        events.publishEvent(new PurchaseOrderReceived(order.getId()));
         return toResponse(order);
     }
 

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.retailerp.catalog.ProductRepository;
 import com.retailerp.invoicing.InvoiceService;
+import com.retailerp.payables.PayablesService;
 import com.retailerp.inventory.StockDtos.LowStock;
 import com.retailerp.inventory.StockService;
 import com.retailerp.purchasing.PurchasingService;
@@ -37,9 +38,11 @@ public class DashboardController {
     private final PurchasingService purchasing;
     private final InvoiceService invoices;
     private final StockService stock;
+    private final PayablesService payables;
 
     public DashboardController(ProductRepository products, SalesOrderRepository salesOrders, SalesService sales,
-            PurchasingService purchasing, InvoiceService invoices, StockService stock) {
+            PurchasingService purchasing, InvoiceService invoices, StockService stock, PayablesService payables) {
+        this.payables = payables;
         this.products = products;
         this.salesOrders = salesOrders;
         this.sales = sales;
@@ -49,7 +52,8 @@ public class DashboardController {
     }
 
     public record Dashboard(long activeProducts, long activeCustomers, long activeSuppliers, long openPurchaseOrders,
-            BigDecimal salesToday, BigDecimal salesLast30Days, BigDecimal outstandingReceivables, List<LowStock> lowStock,
+            BigDecimal salesToday, BigDecimal salesLast30Days, BigDecimal outstandingReceivables, BigDecimal outstandingPayables,
+            List<LowStock> lowStock,
             List<DailySales> dailySales, List<SalesOrderSummary> recentSales) {
     }
 
@@ -66,6 +70,7 @@ public class DashboardController {
                 salesOrders.confirmedTotalSince(today.atStartOfDay().toInstant(ZoneOffset.UTC)),
                 salesOrders.confirmedTotalSince(today.minusDays(29).atStartOfDay().toInstant(ZoneOffset.UTC)),
                 invoices.outstandingTotal(),
+                payables.outstandingTotal(),
                 low.subList(0, Math.min(10, low.size())),
                 salesOrders.dailySales(today.minusDays(13)),
                 sales.searchOrders(SalesOrderStatus.CONFIRMED, "", PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "confirmedAt"))).content());

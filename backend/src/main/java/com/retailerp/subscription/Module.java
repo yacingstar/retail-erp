@@ -11,7 +11,8 @@ public enum Module {
     PURCHASING("Purchasing"),
     POINT_OF_SALE("Point of Sale"),
     REPORTS("Reports"),
-    RETURNS("Returns");
+    RETURNS("Returns"),
+    SUPPLIER_BILLS("Supplier bills");
 
     private final String displayName;
 
