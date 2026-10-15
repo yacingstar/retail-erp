@@ -47,11 +47,13 @@ public final class PosDtos {
             @DecimalMin("0") @DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal discountPercent,
             @NotNull PaymentMethod paymentMethod,
             /** Cash handed over by the customer (CASH only); the change is computed from it. */
-            @DecimalMin("0") @Digits(integer = 12, fraction = 2) BigDecimal cashReceived) {
+            @DecimalMin("0") @Digits(integer = 12, fraction = 2) BigDecimal cashReceived,
+            @Size(max = 40) String couponCode) {
     }
 
     /** Amount before the order discount and tax (those are shown once, at the bottom of the receipt). */
-    public record ReceiptLine(String name, int quantity, BigDecimal unitPrice, BigDecimal amount) {
+    public record ReceiptLine(String name, int quantity, BigDecimal unitPrice, BigDecimal amount, String promotionName,
+            BigDecimal promoDiscount) {
     }
 
     public record Receipt(UUID salesOrderId, String orderNumber, UUID invoiceId, String invoiceNumber, String shopName,

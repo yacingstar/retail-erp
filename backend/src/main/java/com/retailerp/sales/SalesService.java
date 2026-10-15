@@ -30,6 +30,10 @@ import com.retailerp.invoicing.Invoice;
 import com.retailerp.invoicing.InvoiceService;
 import com.retailerp.numbering.DocumentNumberService;
 import com.retailerp.numbering.DocumentNumberService.DocumentType;
+import com.retailerp.pricing.PricingAdminService;
+import com.retailerp.pricing.PricingService;
+import com.retailerp.pricing.PricingService.LineInput;
+import com.retailerp.pricing.PricingService.PricedLine;
 import com.retailerp.sales.SalesDtos.LineResponse;
 import com.retailerp.sales.SalesDtos.SalesOrderRequest;
 import com.retailerp.sales.SalesDtos.SalesOrderResponse;
@@ -49,10 +53,15 @@ public class SalesService {
     private final InvoiceService invoices;
     private final DocumentNumberService numbers;
     private final BigDecimal cashierMaxDiscountPercent;
+    private final PricingService pricing;
+    private final PricingAdminService pricingAdmin;
 
     public SalesService(CustomerRepository customers, SalesOrderRepository orders, CatalogService catalog, StockService stock,
             InvoiceService invoices, DocumentNumberService numbers,
-            @Value("${app.pos.cashier-max-discount-percent:10}") BigDecimal cashierMaxDiscountPercent) {
+            @Value("${app.pos.cashier-max-discount-percent:10}") BigDecimal cashierMaxDiscountPercent, PricingService pricing,
+            PricingAdminService pricingAdmin) {
+        this.pricing = pricing;
+        this.pricingAdmin = pricingAdmin;
         this.cashierMaxDiscountPercent = cashierMaxDiscountPercent;
         this.customers = customers;
         this.orders = orders;
@@ -77,14 +86,31 @@ public class SalesService {
     public PartyResponse createCustomer(PartyRequest request) {
         Customer customer = new Customer();
         customer.update(request);
+        assignPriceList(customer, request.priceListId());
         return PartyResponse.from(customers.saveAndFlush(customer));
     }
 
     public PartyResponse updateCustomer(UUID id, PartyRequest request) {
         Customer customer = customer(id);
         customer.update(request);
+        assignPriceList(customer, request.priceListId());
         customers.flush();
         return PartyResponse.from(customer);
+    }
+
+    private void assignPriceList(Customer customer, UUID priceListId) {
+        customer.assignPriceList(priceListId == null ? null : pricingAdmin.requirePriceList(priceListId));
+    }
+
+    /**
+     * Prices a basket exactly like a real sale (price list, promotions, manual discount, tax) without saving anything:
+     * the order object is never persisted, so the read-only transaction ends with nothing written.
+     */
+    @Transactional(readOnly = true)
+    public SalesOrderResponse preview(SalesOrderRequest request) {
+        SalesOrder order = new SalesOrder("PREVIEW", CurrentUser.id(), null);
+        apply(order, request);
+        return toResponse(order);
     }
 
     public void deleteCustomer(UUID id) {
@@ -206,24 +232,36 @@ public class SalesService {
             throw new BusinessRuleException("Cashiers can give at most " + cashierMaxDiscountPercent.stripTrailingZeros().toPlainString()
                     + "% discount. Ask a manager.");
         }
-        List<SalesOrderLine> lines = request.lines().stream().map(l -> {
+        List<LineInput> inputs = request.lines().stream().map(l -> {
             Product product = catalog.product(l.productId());
             if (!product.isActive()) {
                 throw new BusinessRuleException("Product " + product.getSku() + " is inactive and can't be sold.");
             }
-            BigDecimal unitPrice = l.unitPrice() != null ? l.unitPrice() : product.getSalePrice();
-            if (limited) {
-                requireWithinCashierLimit(product, unitPrice, discountPercent);
-            }
-            return new SalesOrderLine(product, l.quantity(), unitPrice, product.getTaxRate(), discountPercent);
+            return new LineInput(product, l.quantity(), l.unitPrice());
         }).toList();
-        order.edit(customer, catalog.activeWarehouse(request.warehouseId()),
-                request.orderDate() != null ? request.orderDate() : LocalDate.now(), request.notes(), discountPercent, lines);
+        LocalDate orderDate = request.orderDate() != null ? request.orderDate() : LocalDate.now();
+        // Base prices (customer's price list) and the best promotion, computed by the pricing module.
+        PricingService.PricingResult priced = pricing.price(customer == null ? null : customer.priceListId(), inputs, request.couponCode(),
+                orderDate);
+        List<SalesOrderLine> lines = priced.lines().stream().map(p -> {
+            if (limited) {
+                requireWithinCashierLimit(p, discountPercent);
+            }
+            return new SalesOrderLine(p.product(), p.quantity(), p.unitPrice(), p.product().getTaxRate(), discountPercent, p.promoDiscount(),
+                    p.promotionName());
+        }).toList();
+        order.edit(customer, catalog.activeWarehouse(request.warehouseId()), orderDate, request.notes(), discountPercent,
+                priced.couponCode(), lines);
     }
 
-    /** A lowered line price plus the order discount together may not exceed the cashier limit vs. the list price. */
-    private void requireWithinCashierLimit(Product product, BigDecimal unitPrice, BigDecimal discountPercent) {
-        BigDecimal listPrice = product.getSalePrice();
+    /**
+     * A lowered line price plus the manual discount together may not exceed the cashier limit vs. the customer's normal
+     * price (their price list). Promotions are set up by managers, so they don't count against the limit.
+     */
+    private void requireWithinCashierLimit(PricedLine line, BigDecimal discountPercent) {
+        Product product = line.product();
+        BigDecimal unitPrice = line.unitPrice();
+        BigDecimal listPrice = line.basePrice();
         if (listPrice.signum() == 0) {
             return;
         }
@@ -245,10 +283,12 @@ public class SalesService {
         Customer c = so.getCustomer();
         return new SalesOrderResponse(so.getId(), so.getNumber(), c == null ? null : c.getId(), c == null ? null : c.getName(),
                 so.getWarehouse().getId(), so.getWarehouse().getCode(), so.getWarehouse().getName(), so.getStatus(), so.getOrderDate(),
-                so.getConfirmedAt(), so.getNotes(), so.getSubtotal(), so.getDiscountPercent(), so.getDiscountTotal(), so.getTaxTotal(),
+                so.getConfirmedAt(), so.getNotes(), so.getSubtotal(), so.getDiscountPercent(), so.getDiscountTotal(), so.getCouponCode(),
+                so.getTaxTotal(),
                 so.getTotal(),
                 so.getLines().stream().map(LineResponse::from).toList(), invoice == null ? null : invoice.getId(),
-                invoice == null ? null : invoice.getNumber(), stock.movementsFor(REFERENCE_TYPE, so.getId()), so.getCreatedAt(),
+                invoice == null ? null : invoice.getNumber(), so.getId() == null ? List.of() : stock.movementsFor(REFERENCE_TYPE, so.getId()),
+                so.getCreatedAt(),
                 so.getUpdatedAt());
     }
 

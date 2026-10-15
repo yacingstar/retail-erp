@@ -18,15 +18,17 @@ public final class PartyDtos {
             @Size(max = 50) String phone,
             @Size(max = 2000) String address,
             @Size(max = 5000) String notes,
-            Boolean active) {
+            Boolean active,
+            /** Customers only: their price list (customer group). Ignored for suppliers. */
+            UUID priceListId) {
     }
 
     public record PartyResponse(UUID id, String name, String email, String phone, String address, String notes, boolean active,
-            Instant createdAt) {
+            Instant createdAt, UUID priceListId) {
 
         public static PartyResponse from(Party p) {
             return new PartyResponse(p.getId(), p.getName(), p.getEmail(), p.getPhone(), p.getAddress(), p.getNotes(), p.isActive(),
-                    p.getCreatedAt());
+                    p.getCreatedAt(), p.priceListId());
         }
     }
 }

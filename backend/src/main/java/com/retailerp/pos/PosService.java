@@ -128,7 +128,7 @@ public class PosService {
         }
 
         SalesOrder order = sales.createConfirmed(new SalesOrderRequest(request.customerId(), shift.getWarehouse().getId(), null, null,
-                request.discountPercent(), request.lines()), shift.getId());
+                request.discountPercent(), request.lines(), request.couponCode()), shift.getId());
         BigDecimal total = order.getTotal();
 
         BigDecimal cashReceived = null;
@@ -148,7 +148,9 @@ public class PosService {
         }
 
         List<ReceiptLine> lines = order.getLines().stream()
-                .map(l -> new ReceiptLine(l.getProduct().getName(), l.getQuantity(), l.getUnitPrice(), l.getLineSubtotal())).toList();
+                .map(l -> new ReceiptLine(l.getProduct().getName(), l.getQuantity(), l.getUnitPrice(), l.getLineSubtotal(),
+                        l.getPromotionName(), l.getPromoDiscount()))
+                .toList();
         String shopName = tenants.findById(TenantContext.get()).map(t -> t.getName()).orElse("");
         return new Receipt(order.getId(), order.getNumber(), invoice.getId(), invoice.getNumber(), shopName, shift.getWarehouse().getName(),
                 CurrentUser.name(), order.getCustomer() == null ? null : order.getCustomer().getName(), order.getConfirmedAt(), lines,

@@ -1,5 +1,7 @@
 package com.retailerp.common;
 
+import java.util.UUID;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.MappedSuperclass;
 
@@ -56,5 +58,10 @@ public abstract class Party extends AuditedEntity {
 
     public boolean isActive() {
         return active;
+    }
+
+    /** Only customers have a price list; suppliers return null. */
+    public UUID priceListId() {
+        return null;
     }
 }

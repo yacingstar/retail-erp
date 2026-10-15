@@ -74,6 +74,9 @@ public class SalesOrder extends AuditedEntity {
     @Column(name = "pos_shift_id", updatable = false)
     private UUID posShiftId;
 
+    @Column(name = "coupon_code", length = 40)
+    private String couponCode;
+
     @OneToMany(mappedBy = "salesOrder", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("lineNo")
     private List<SalesOrderLine> lines = new ArrayList<>();
@@ -89,8 +92,9 @@ public class SalesOrder extends AuditedEntity {
 
     /** Lines must already carry {@code discountPercent} (see SalesOrderLine). */
     public void edit(Customer customer, Warehouse warehouse, LocalDate orderDate, String notes, BigDecimal discountPercent,
-            List<SalesOrderLine> newLines) {
+            String couponCode, List<SalesOrderLine> newLines) {
         requireStatus(SalesOrderStatus.DRAFT, "edit");
+        this.couponCode = couponCode;
         this.customer = customer;
         this.warehouse = warehouse;
         this.orderDate = orderDate;
@@ -171,6 +175,10 @@ public class SalesOrder extends AuditedEntity {
 
     public BigDecimal getDiscountTotal() {
         return discountTotal;
+    }
+
+    public String getCouponCode() {
+        return couponCode;
     }
 
     public UUID getPosShiftId() {

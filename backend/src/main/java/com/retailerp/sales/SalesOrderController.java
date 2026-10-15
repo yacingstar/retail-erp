@@ -70,6 +70,12 @@ public class SalesOrderController {
         sales.deleteOrder(id);
     }
 
+    /** Live price calculation for the sales form and the till (nothing is saved). */
+    @PostMapping("/preview")
+    public SalesOrderResponse preview(@Valid @RequestBody SalesOrderRequest request) {
+        return sales.preview(request);
+    }
+
     @PostMapping("/{id}/confirm")
     public SalesOrderResponse confirm(@PathVariable UUID id) {
         return sales.confirm(id);

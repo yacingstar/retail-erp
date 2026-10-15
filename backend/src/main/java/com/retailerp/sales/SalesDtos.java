@@ -35,16 +35,19 @@ public final class SalesDtos {
             @Size(max = 5000) String notes,
             /** Optional % off the whole order (cashiers are limited, see SalesService). */
             @DecimalMin("0") @jakarta.validation.constraints.DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal discountPercent,
-            @NotEmpty @Size(max = 500) List<@Valid LineRequest> lines) {
+            @NotEmpty @Size(max = 500) List<@Valid LineRequest> lines,
+            /** Optional coupon code that unlocks a promotion. */
+            @Size(max = 40) String couponCode) {
     }
 
     public record LineResponse(int lineNo, UUID productId, String sku, String productName, int quantity, BigDecimal unitPrice,
-            BigDecimal taxRate, BigDecimal lineSubtotal, BigDecimal lineDiscount, BigDecimal lineTax, BigDecimal lineTotal) {
+            BigDecimal taxRate, BigDecimal lineSubtotal, BigDecimal lineDiscount, BigDecimal promoDiscount, String promotionName,
+            BigDecimal lineTax, BigDecimal lineTotal) {
 
         public static LineResponse from(SalesOrderLine l) {
             return new LineResponse(l.getLineNo(), l.getProduct().getId(), l.getProduct().getSku(), l.getProduct().getName(),
-                    l.getQuantity(), l.getUnitPrice(), l.getTaxRate(), l.getLineSubtotal(), l.getLineDiscount(), l.getLineTax(),
-                    l.getLineTotal());
+                    l.getQuantity(), l.getUnitPrice(), l.getTaxRate(), l.getLineSubtotal(), l.getLineDiscount(), l.getPromoDiscount(),
+                    l.getPromotionName(), l.getLineTax(), l.getLineTotal());
         }
     }
 
@@ -60,7 +63,7 @@ public final class SalesDtos {
 
     public record SalesOrderResponse(UUID id, String number, UUID customerId, String customerName, UUID warehouseId,
             String warehouseCode, String warehouseName, SalesOrderStatus status, LocalDate orderDate, Instant confirmedAt, String notes,
-            BigDecimal subtotal, BigDecimal discountPercent, BigDecimal discountTotal, BigDecimal taxTotal, BigDecimal total, List<LineResponse> lines, UUID invoiceId, String invoiceNumber,
+            BigDecimal subtotal, BigDecimal discountPercent, BigDecimal discountTotal, String couponCode, BigDecimal taxTotal, BigDecimal total, List<LineResponse> lines, UUID invoiceId, String invoiceNumber,
             List<MovementResponse> movements, Instant createdAt, Instant updatedAt) {
     }
 

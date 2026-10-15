@@ -48,8 +48,16 @@ public class SalesOrderLine extends TenantScopedEntity {
     @Column(name = "line_subtotal", nullable = false, precision = 14, scale = 2)
     private BigDecimal lineSubtotal;
 
+    /** Total discount on the line: promotion + manual. */
     @Column(name = "line_discount", nullable = false, precision = 14, scale = 2)
     private BigDecimal lineDiscount;
+
+    /** The part of lineDiscount that came from a promotion (informational). */
+    @Column(name = "promo_discount", nullable = false, precision = 14, scale = 2)
+    private BigDecimal promoDiscount = BigDecimal.ZERO;
+
+    @Column(name = "promotion_name", length = 150)
+    private String promotionName;
 
     @Column(name = "line_tax", nullable = false, precision = 14, scale = 2)
     private BigDecimal lineTax;
@@ -60,15 +68,21 @@ public class SalesOrderLine extends TenantScopedEntity {
     protected SalesOrderLine() {
     }
 
-    /** @param discountPercent the order-level discount, applied to every line (0 = none) */
-    public SalesOrderLine(Product product, int quantity, BigDecimal unitPrice, BigDecimal taxRate, BigDecimal discountPercent) {
+    /**
+     * @param promoDiscount   money off from a promotion (computed by PricingService)
+     * @param discountPercent the manual order-level discount, applied after the promotion (0 = none)
+     */
+    public SalesOrderLine(Product product, int quantity, BigDecimal unitPrice, BigDecimal taxRate, BigDecimal discountPercent,
+            BigDecimal promoDiscount, String promotionName) {
         this.product = product;
         this.quantity = quantity;
         this.unitPrice = Money.round(unitPrice);
         this.taxRate = taxRate;
         this.unitCost = product.getCostPrice();
         this.lineSubtotal = Money.times(this.unitPrice, quantity);
-        this.lineDiscount = Money.percentOf(lineSubtotal, discountPercent);
+        this.promoDiscount = promoDiscount.min(lineSubtotal);
+        this.promotionName = promotionName;
+        this.lineDiscount = this.promoDiscount.add(Money.percentOf(lineSubtotal.subtract(this.promoDiscount), discountPercent));
         BigDecimal net = lineSubtotal.subtract(lineDiscount);
         this.lineTax = Money.percentOf(net, taxRate);
         this.lineTotal = net.add(lineTax);
@@ -109,6 +123,14 @@ public class SalesOrderLine extends TenantScopedEntity {
 
     public BigDecimal getLineDiscount() {
         return lineDiscount;
+    }
+
+    public BigDecimal getPromoDiscount() {
+        return promoDiscount;
+    }
+
+    public String getPromotionName() {
+        return promotionName;
     }
 
     public BigDecimal getLineTax() {
