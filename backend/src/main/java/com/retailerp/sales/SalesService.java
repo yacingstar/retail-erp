@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -55,11 +56,13 @@ public class SalesService {
     private final BigDecimal cashierMaxDiscountPercent;
     private final PricingService pricing;
     private final PricingAdminService pricingAdmin;
+    private final ApplicationEventPublisher events;
 
     public SalesService(CustomerRepository customers, SalesOrderRepository orders, CatalogService catalog, StockService stock,
             InvoiceService invoices, DocumentNumberService numbers,
             @Value("${app.pos.cashier-max-discount-percent:10}") BigDecimal cashierMaxDiscountPercent, PricingService pricing,
-            PricingAdminService pricingAdmin) {
+            PricingAdminService pricingAdmin, ApplicationEventPublisher events) {
+        this.events = events;
         this.pricing = pricing;
         this.pricingAdmin = pricingAdmin;
         this.cashierMaxDiscountPercent = cashierMaxDiscountPercent;
@@ -195,6 +198,7 @@ public class SalesService {
         order.confirm();
         invoices.issueFor(order);
         orders.flush();
+        events.publishEvent(new SalesOrderConfirmed(order.getId()));
     }
 
     /**
@@ -213,8 +217,12 @@ public class SalesService {
                         order.getId(), "Cancelled " + order.getNumber());
             }
         }
+        boolean wasConfirmed = order.getStatus() == SalesOrderStatus.CONFIRMED;
         order.cancel();
         orders.flush();
+        if (wasConfirmed) {
+            events.publishEvent(new SalesOrderCancelled(order.getId()));
+        }
         return toResponse(order);
     }
 

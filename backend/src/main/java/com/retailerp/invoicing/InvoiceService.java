@@ -8,6 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -36,10 +37,12 @@ public class InvoiceService {
     private final PaymentRepository payments;
     private final DocumentNumberService numbers;
     private final StoreCreditService storeCredit;
+    private final ApplicationEventPublisher events;
     private final int paymentTermsDays;
 
     public InvoiceService(InvoiceRepository invoices, PaymentRepository payments, DocumentNumberService numbers, StoreCreditService storeCredit,
-            @Value("${app.invoice.payment-terms-days:30}") int paymentTermsDays) {
+            ApplicationEventPublisher events, @Value("${app.invoice.payment-terms-days:30}") int paymentTermsDays) {
+        this.events = events;
         this.storeCredit = storeCredit;
         this.invoices = invoices;
         this.payments = payments;
@@ -85,8 +88,9 @@ public class InvoiceService {
             }
             storeCredit.spend(invoice.getCustomer(), amount, invoice.getId(), "Payment of " + invoice.getNumber());
         }
-        payments.save(new Payment(invoice, amount, request.method(), request.reference(),
+        Payment payment = payments.save(new Payment(invoice, amount, request.method(), request.reference(),
                 request.paidAt() != null ? request.paidAt() : Instant.now(), CurrentUser.id()));
+        events.publishEvent(new InvoicePaymentRecorded(payment.getId()));
         return toResponse(invoice);
     }
 

@@ -22,7 +22,8 @@ public final class PayablesDtos {
     public record BillLineRequest(
             @NotBlank @Size(max = 300) String description,
             @NotNull @DecimalMin(value = "0", inclusive = false) @Digits(integer = 9, fraction = 3) BigDecimal quantity,
-            @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal unitPrice) {
+            @NotNull @DecimalMin("0") @Digits(integer = 10, fraction = 2) BigDecimal unitPrice,
+            @DecimalMin("0") @jakarta.validation.constraints.DecimalMax("100") @Digits(integer = 3, fraction = 2) BigDecimal taxRate) {
     }
 
     public record BillRequest(
@@ -31,6 +32,8 @@ public final class PayablesDtos {
             LocalDate billDate,
             LocalDate dueDate,
             @Size(max = 5000) String description,
+            /** Manual bills only: expense account code (default 607). */
+            @jakarta.validation.constraints.Pattern(regexp = "^[0-9]{2,10}$") String expenseAccount,
             @NotEmpty @Size(max = 500) List<@Valid BillLineRequest> lines) {
     }
 
@@ -41,7 +44,8 @@ public final class PayablesDtos {
             Instant paidAt) {
     }
 
-    public record BillLineResponse(int lineNo, String description, BigDecimal quantity, BigDecimal unitPrice, BigDecimal lineTotal) {
+    public record BillLineResponse(int lineNo, String description, BigDecimal quantity, BigDecimal unitPrice, BigDecimal lineTotal,
+            BigDecimal taxRate, BigDecimal lineTax) {
     }
 
     public record SupplierPaymentResponse(UUID id, BigDecimal amount, SupplierPaymentMethod method, String reference, Instant paidAt) {
@@ -52,7 +56,8 @@ public final class PayablesDtos {
     }
 
     public record BillResponse(UUID id, String number, String supplierReference, UUID supplierId, String supplierName, BillStatus status,
-            LocalDate billDate, LocalDate dueDate, String description, BigDecimal total, BigDecimal amountPaid, BigDecimal balanceDue,
+            LocalDate billDate, LocalDate dueDate, String description, String expenseAccount, BigDecimal subtotal, BigDecimal taxTotal,
+            BigDecimal total, BigDecimal amountPaid, BigDecimal balanceDue,
             UUID purchaseOrderId, String purchaseOrderNumber, Instant approvedAt, List<BillLineResponse> lines,
             List<SupplierPaymentResponse> payments) {
     }

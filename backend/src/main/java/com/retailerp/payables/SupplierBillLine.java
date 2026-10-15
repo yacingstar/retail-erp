@@ -33,17 +33,26 @@ public class SupplierBillLine extends TenantScopedEntity {
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
 
+    /** Amount before tax (HT). */
     @Column(name = "line_total", nullable = false, precision = 14, scale = 2)
     private BigDecimal lineTotal;
+
+    @Column(name = "tax_rate", nullable = false, precision = 5, scale = 2)
+    private BigDecimal taxRate = BigDecimal.ZERO;
+
+    @Column(name = "line_tax", nullable = false, precision = 14, scale = 2)
+    private BigDecimal lineTax = BigDecimal.ZERO;
 
     protected SupplierBillLine() {
     }
 
-    SupplierBillLine(String description, BigDecimal quantity, BigDecimal unitPrice) {
+    SupplierBillLine(String description, BigDecimal quantity, BigDecimal unitPrice, BigDecimal taxRate) {
         this.description = description;
         this.quantity = quantity;
         this.unitPrice = unitPrice.setScale(2, RoundingMode.HALF_UP);
         this.lineTotal = quantity.multiply(this.unitPrice).setScale(2, RoundingMode.HALF_UP);
+        this.taxRate = taxRate == null ? BigDecimal.ZERO : taxRate;
+        this.lineTax = com.retailerp.common.Money.percentOf(lineTotal, this.taxRate);
     }
 
     void attach(SupplierBill bill, int lineNo) {
@@ -69,5 +78,13 @@ public class SupplierBillLine extends TenantScopedEntity {
 
     public BigDecimal getLineTotal() {
         return lineTotal;
+    }
+
+    public BigDecimal getTaxRate() {
+        return taxRate;
+    }
+
+    public BigDecimal getLineTax() {
+        return lineTax;
     }
 }

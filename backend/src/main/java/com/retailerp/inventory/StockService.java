@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -39,8 +40,10 @@ public class StockService {
     private final StockMovementRepository movements;
     private final CatalogService catalog;
     private final JdbcTemplate jdbc;
+    private final ApplicationEventPublisher events;
 
-    public StockService(StockMovementRepository movements, CatalogService catalog, JdbcTemplate jdbc) {
+    public StockService(StockMovementRepository movements, CatalogService catalog, JdbcTemplate jdbc, ApplicationEventPublisher events) {
+        this.events = events;
         this.movements = movements;
         this.catalog = catalog;
         this.jdbc = jdbc;
@@ -111,13 +114,17 @@ public class StockService {
         }
         Product product = catalog.product(request.productId());
         Warehouse warehouse = catalog.activeWarehouse(request.warehouseId());
+        StockMovement movement;
         if (request.quantity() > 0) {
-            return MovementResponse.from(addStock(product, warehouse, request.quantity(), MovementType.ADJUSTMENT, null, null, request.note()));
+            movement = addStock(product, warehouse, request.quantity(), MovementType.ADJUSTMENT, null, null, request.note());
+        } else {
+            int removed = -request.quantity();
+            lock(List.of(new StockKey(product.getId(), warehouse.getId())));
+            requireAvailable(Map.of(product, removed), warehouse);
+            movement = removeStock(product, warehouse, removed, MovementType.ADJUSTMENT, null, null, request.note());
         }
-        int removed = -request.quantity();
-        lock(List.of(new StockKey(product.getId(), warehouse.getId())));
-        requireAvailable(Map.of(product, removed), warehouse);
-        return MovementResponse.from(removeStock(product, warehouse, removed, MovementType.ADJUSTMENT, null, null, request.note()));
+        events.publishEvent(new StockAdjusted(movement.getId()));
+        return MovementResponse.from(movement);
     }
 
     /** A transfer is two movements in one transaction: out of one warehouse, into another. */

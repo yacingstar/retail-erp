@@ -10,6 +10,7 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,9 +60,11 @@ public class ReturnService {
     private final StoreCreditService storeCredit;
     private final DocumentNumberService numbers;
     private final PosShiftRepository shifts;
+    private final ApplicationEventPublisher events;
 
     public ReturnService(SalesReturnRepository returns, SalesOrderRepository salesOrders, InvoiceService invoices, StockService stock,
-            StoreCreditService storeCredit, DocumentNumberService numbers, PosShiftRepository shifts) {
+            StoreCreditService storeCredit, DocumentNumberService numbers, PosShiftRepository shifts, ApplicationEventPublisher events) {
+        this.events = events;
         this.returns = returns;
         this.salesOrders = salesOrders;
         this.invoices = invoices;
@@ -125,6 +128,7 @@ public class ReturnService {
             storeCredit.give(order.getCustomer(), refund, ret.getId(), "Return " + ret.getNumber());
         }
         returns.flush();
+        events.publishEvent(new SalesReturnCreated(ret.getId()));
         return toResponse(ret);
     }
 

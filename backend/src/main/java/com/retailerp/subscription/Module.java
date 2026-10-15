@@ -13,7 +13,8 @@ public enum Module {
     REPORTS("Reports"),
     RETURNS("Returns"),
     SUPPLIER_BILLS("Supplier bills"),
-    PROMOTIONS("Promotions");
+    PROMOTIONS("Promotions"),
+    ACCOUNTING("Accounting");
 
     private final String displayName;
 

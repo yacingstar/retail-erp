@@ -57,8 +57,20 @@ public class SupplierBill extends AuditedEntity {
     @Column(columnDefinition = "text")
     private String description;
 
+    /** Before tax (HT). */
+    @Column(nullable = false, precision = 14, scale = 2)
+    private BigDecimal subtotal = BigDecimal.ZERO;
+
+    @Column(name = "tax_total", nullable = false, precision = 14, scale = 2)
+    private BigDecimal taxTotal = BigDecimal.ZERO;
+
+    /** What we owe (TTC) = subtotal + tax. */
     @Column(nullable = false, precision = 14, scale = 2)
     private BigDecimal total = BigDecimal.ZERO;
+
+    /** Manual bills: the expense account to post to (e.g. 613 rent). Bills for goods go to stock instead. */
+    @Column(name = "expense_account", length = 10)
+    private String expenseAccount;
 
     @Column(name = "amount_paid", nullable = false, precision = 14, scale = 2)
     private BigDecimal amountPaid = BigDecimal.ZERO;
@@ -82,7 +94,7 @@ public class SupplierBill extends AuditedEntity {
         this.createdBy = createdBy;
     }
 
-    void edit(Supplier supplier, String supplierReference, LocalDate billDate, LocalDate dueDate, String description,
+    void edit(Supplier supplier, String supplierReference, LocalDate billDate, LocalDate dueDate, String description, String expenseAccount,
             List<SupplierBillLine> newLines) {
         if (status != BillStatus.DRAFT) {
             throw new BusinessRuleException("Bill " + number + " is " + status + "; only drafts can be edited.");
@@ -92,15 +104,20 @@ public class SupplierBill extends AuditedEntity {
         this.billDate = billDate;
         this.dueDate = dueDate;
         this.description = description;
+        this.expenseAccount = expenseAccount;
         this.lines.clear();
         int lineNo = 1;
         BigDecimal sum = BigDecimal.ZERO;
+        BigDecimal tax = BigDecimal.ZERO;
         for (SupplierBillLine line : newLines) {
             line.attach(this, lineNo++);
             lines.add(line);
             sum = sum.add(line.getLineTotal());
+            tax = tax.add(line.getLineTax());
         }
-        this.total = sum;
+        this.subtotal = sum;
+        this.taxTotal = tax;
+        this.total = sum.add(tax);
     }
 
     void approve() {
@@ -123,6 +140,10 @@ public class SupplierBill extends AuditedEntity {
         }
         amountPaid = amountPaid.add(amount);
         status = balanceDue().signum() == 0 ? BillStatus.PAID : BillStatus.PARTIALLY_PAID;
+    }
+
+    boolean isApproved() {
+        return approvedAt != null;
     }
 
     void voidBill() {
@@ -169,6 +190,18 @@ public class SupplierBill extends AuditedEntity {
 
     public String getDescription() {
         return description;
+    }
+
+    public BigDecimal getSubtotal() {
+        return subtotal;
+    }
+
+    public BigDecimal getTaxTotal() {
+        return taxTotal;
+    }
+
+    public String getExpenseAccount() {
+        return expenseAccount;
     }
 
     public BigDecimal getTotal() {

@@ -9,6 +9,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -51,9 +52,12 @@ public class PayablesService {
     private final PurchaseOrderRepository purchaseOrders;
     private final DocumentNumberService numbers;
     private final SubscriptionService subscriptions;
+    private final ApplicationEventPublisher events;
 
     public PayablesService(SupplierBillRepository bills, SupplierPaymentRepository payments, SupplierRepository suppliers,
-            PurchaseOrderRepository purchaseOrders, DocumentNumberService numbers, SubscriptionService subscriptions) {
+            PurchaseOrderRepository purchaseOrders, DocumentNumberService numbers, SubscriptionService subscriptions,
+            ApplicationEventPublisher events) {
+        this.events = events;
         this.bills = bills;
         this.payments = payments;
         this.suppliers = suppliers;
@@ -77,9 +81,9 @@ public class PayablesService {
         List<SupplierBillLine> lines = new ArrayList<>();
         for (PurchaseOrderLine l : po.getLines()) {
             lines.add(new SupplierBillLine(l.getProduct().getSku() + " · " + l.getProduct().getName(), BigDecimal.valueOf(l.getQuantity()),
-                    l.getUnitCost()));
+                    l.getUnitCost(), l.getProduct().getTaxRate()));
         }
-        bill.edit(po.getSupplier(), null, LocalDate.now(), null, "Goods received on " + po.getNumber(), lines);
+        bill.edit(po.getSupplier(), null, LocalDate.now(), null, "Goods received on " + po.getNumber(), null, lines);
         bills.save(bill);
     }
 
@@ -99,12 +103,17 @@ public class PayablesService {
     public BillResponse approve(UUID id) {
         SupplierBill bill = bill(id);
         bill.approve();
+        bills.flush();
+        events.publishEvent(new SupplierBillApproved(bill.getId()));
         return toResponse(bill);
     }
 
     public BillResponse voidBill(UUID id) {
         SupplierBill bill = bill(id);
+        boolean wasApproved = bill.isApproved();
         bill.voidBill();
+        bills.flush();
+        events.publishEvent(new SupplierBillVoided(bill.getId(), wasApproved));
         return toResponse(bill);
     }
 
@@ -112,9 +121,10 @@ public class PayablesService {
         SupplierBill bill = bills.findForUpdate(id).orElseThrow(() -> new NotFoundException("Bill", id));
         BigDecimal amount = Money.round(request.amount());
         bill.registerPayment(amount);
-        payments.save(new SupplierPayment(bill, amount, request.method(), request.reference(),
+        SupplierPayment payment = payments.save(new SupplierPayment(bill, amount, request.method(), request.reference(),
                 request.paidAt() != null ? request.paidAt() : Instant.now(), CurrentUser.id()));
         bills.flush();
+        events.publishEvent(new SupplierPaymentRecorded(payment.getId()));
         return toResponse(bills.findWithLines(id).orElseThrow());
     }
 
@@ -175,13 +185,14 @@ public class PayablesService {
 
     private void apply(SupplierBill bill, BillRequest r) {
         Supplier supplier = suppliers.findById(r.supplierId()).orElseThrow(() -> new NotFoundException("Supplier", r.supplierId()));
-        List<SupplierBillLine> lines = r.lines().stream().map(l -> new SupplierBillLine(l.description().trim(), l.quantity(), l.unitPrice()))
-                .toList();
+        List<SupplierBillLine> lines = r.lines().stream()
+                .map(l -> new SupplierBillLine(l.description().trim(), l.quantity(), l.unitPrice(), l.taxRate())).toList();
         if (r.dueDate() != null && r.billDate() != null && r.dueDate().isBefore(r.billDate())) {
             throw new IllegalArgumentException("The due date can't be before the bill date.");
         }
+        String expenseAccount = bill.getPurchaseOrder() != null ? null : (r.expenseAccount() == null ? "607" : r.expenseAccount());
         bill.edit(supplier, blank(r.supplierReference()), r.billDate() != null ? r.billDate() : LocalDate.now(), r.dueDate(), r.description(),
-                lines);
+                expenseAccount, lines);
     }
 
     private SupplierBill bill(UUID id) {
@@ -190,11 +201,12 @@ public class PayablesService {
 
     private BillResponse toResponse(SupplierBill b) {
         return new BillResponse(b.getId(), b.getNumber(), b.getSupplierReference(), b.getSupplier().getId(), b.getSupplier().getName(),
-                b.getStatus(), b.getBillDate(), b.getDueDate(), b.getDescription(), b.getTotal(), b.getAmountPaid(), b.balanceDue(),
+                b.getStatus(), b.getBillDate(), b.getDueDate(), b.getDescription(), b.getExpenseAccount(), b.getSubtotal(), b.getTaxTotal(),
+                b.getTotal(), b.getAmountPaid(), b.balanceDue(),
                 b.getPurchaseOrder() == null ? null : b.getPurchaseOrder().getId(),
                 b.getPurchaseOrder() == null ? null : b.getPurchaseOrder().getNumber(), b.getApprovedAt(),
                 b.getLines().stream().map(l -> new BillLineResponse(l.getLineNo(), l.getDescription(), l.getQuantity(), l.getUnitPrice(),
-                        l.getLineTotal())).toList(),
+                        l.getLineTotal(), l.getTaxRate(), l.getLineTax())).toList(),
                 b.getId() == null ? List.of() : payments.findByBillIdOrderByPaidAtAsc(b.getId()).stream()
                         .map(p -> new SupplierPaymentResponse(p.getId(), p.getAmount(), p.getMethod(), p.getReference(), p.getPaidAt())).toList());
     }
