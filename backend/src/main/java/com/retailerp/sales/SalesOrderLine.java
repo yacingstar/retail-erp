@@ -41,6 +41,10 @@ public class SalesOrderLine extends TenantScopedEntity {
     @Column(name = "tax_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal taxRate;
 
+    /** The product's cost price when the line was created (for profit reports). */
+    @Column(name = "unit_cost", nullable = false, precision = 12, scale = 2)
+    private BigDecimal unitCost;
+
     @Column(name = "line_subtotal", nullable = false, precision = 14, scale = 2)
     private BigDecimal lineSubtotal;
 
@@ -62,6 +66,7 @@ public class SalesOrderLine extends TenantScopedEntity {
         this.quantity = quantity;
         this.unitPrice = Money.round(unitPrice);
         this.taxRate = taxRate;
+        this.unitCost = product.getCostPrice();
         this.lineSubtotal = Money.times(this.unitPrice, quantity);
         this.lineDiscount = Money.percentOf(lineSubtotal, discountPercent);
         BigDecimal net = lineSubtotal.subtract(lineDiscount);
@@ -92,6 +97,10 @@ public class SalesOrderLine extends TenantScopedEntity {
 
     public BigDecimal getTaxRate() {
         return taxRate;
+    }
+
+    public BigDecimal getUnitCost() {
+        return unitCost;
     }
 
     public BigDecimal getLineSubtotal() {

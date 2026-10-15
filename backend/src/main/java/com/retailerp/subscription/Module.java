@@ -9,7 +9,8 @@ public enum Module {
     SALES("Sales"),
     INVOICING("Invoicing"),
     PURCHASING("Purchasing"),
-    POINT_OF_SALE("Point of Sale");
+    POINT_OF_SALE("Point of Sale"),
+    REPORTS("Reports");
 
     private final String displayName;
 
