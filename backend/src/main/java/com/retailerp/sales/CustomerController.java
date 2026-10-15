@@ -35,9 +35,11 @@ import jakarta.validation.Valid;
 public class CustomerController {
 
     private final SalesService sales;
+    private final StoreCreditService storeCredit;
 
-    public CustomerController(SalesService sales) {
+    public CustomerController(SalesService sales, StoreCreditService storeCredit) {
         this.sales = sales;
+        this.storeCredit = storeCredit;
     }
 
     @GetMapping
@@ -60,6 +62,12 @@ public class CustomerController {
     @PutMapping("/{id}")
     public PartyResponse update(@PathVariable UUID id, @Valid @RequestBody PartyRequest request) {
         return sales.updateCustomer(id, request);
+    }
+
+    /** The customer's store credit balance and history. */
+    @GetMapping("/{id}/store-credit")
+    public StoreCreditService.CreditResponse storeCredit(@PathVariable UUID id) {
+        return storeCredit.statement(id);
     }
 
     @DeleteMapping("/{id}")

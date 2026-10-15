@@ -44,7 +44,8 @@ public final class InvoicingDtos {
 
     public record InvoiceResponse(UUID id, String number, UUID salesOrderId, String salesOrderNumber, UUID customerId, String customerName,
             String customerEmail, String customerAddress, InvoiceStatus status, LocalDate issueDate, LocalDate dueDate, BigDecimal subtotal,
-            BigDecimal discountTotal, BigDecimal taxTotal, BigDecimal total, BigDecimal amountPaid, BigDecimal balanceDue, List<LineResponse> lines,
+            BigDecimal discountTotal, BigDecimal taxTotal, BigDecimal total, BigDecimal amountPaid, BigDecimal amountCredited,
+            BigDecimal amountRefunded, BigDecimal balanceDue, List<LineResponse> lines,
             List<PaymentResponse> payments) {
     }
 }

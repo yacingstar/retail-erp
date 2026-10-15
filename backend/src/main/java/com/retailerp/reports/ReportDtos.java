@@ -14,9 +14,12 @@ public final class ReportDtos {
         DAY, WEEK, MONTH
     }
 
-    /** Net sales = subtotal − discounts (excluding tax). Total = net + tax (what customers paid). */
-    public record SalesRow(LocalDate period, long orders, BigDecimal grossSales, BigDecimal discounts, BigDecimal netSales,
-            BigDecimal tax, BigDecimal total, BigDecimal averageSale) {
+    /**
+     * Net sales = gross − discounts − returns (all excluding tax). Total = net + tax. Returns are counted on the
+     * day they happen (not the day of the original sale). Average sale = sales total ÷ orders, before returns.
+     */
+    public record SalesRow(LocalDate period, long orders, BigDecimal grossSales, BigDecimal discounts, BigDecimal returns,
+            BigDecimal netSales, BigDecimal tax, BigDecimal total, BigDecimal averageSale) {
     }
 
     public record SalesReport(LocalDate from, LocalDate to, Period groupBy, List<SalesRow> rows, SalesRow totals) {

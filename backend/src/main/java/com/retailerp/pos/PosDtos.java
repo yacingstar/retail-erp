@@ -37,7 +37,7 @@ public final class PosDtos {
 
     public record ShiftResponse(UUID id, ShiftStatus status, UUID warehouseId, String warehouseCode, String warehouseName, UUID openedBy,
             String openedByName, Instant openedAt, BigDecimal openingCash, UUID closedBy, Instant closedAt, long salesCount, BigDecimal salesTotal,
-            List<MethodTotal> payments, BigDecimal expectedCash, BigDecimal countedCash, BigDecimal difference, String notes) {
+            List<MethodTotal> payments, BigDecimal cashRefunds, BigDecimal expectedCash, BigDecimal countedCash, BigDecimal difference, String notes) {
     }
 
     /** One POS sale: what's in the cart, how it's paid. */

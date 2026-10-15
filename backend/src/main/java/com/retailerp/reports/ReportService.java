@@ -48,35 +48,60 @@ public class ReportService {
     public SalesReport sales(LocalDate from, LocalDate to, Period groupBy) {
         validate(from, to);
         String unit = groupBy.name().toLowerCase(); // 'day' | 'week' | 'month' (an enum, never user text: safe in SQL)
+        List<BigDecimal> salesTotals = new java.util.ArrayList<>();
+        // Sales (+) and returns (−) per period, combined with a FULL JOIN so periods with only returns still show.
         List<SalesRow> rows = jdbc.query("""
-                SELECT date_trunc('%s', order_date)::date AS period,
-                       count(*) AS orders,
-                       sum(subtotal) AS gross, sum(discount_total) AS discounts, sum(tax_total) AS tax, sum(total) AS total
-                FROM sales_orders
-                WHERE status = 'CONFIRMED' AND order_date BETWEEN ? AND ?
-                GROUP BY 1 ORDER BY 1
-                """.formatted(unit), (rs, i) -> salesRow(rs.getObject("period", LocalDate.class), rs), from, to);
+                WITH s AS (
+                    SELECT date_trunc('%1$s', order_date)::date AS period, count(*) AS orders, sum(subtotal) AS gross,
+                           sum(discount_total) AS discounts, sum(tax_total) AS tax, sum(total) AS total
+                    FROM sales_orders WHERE status = 'CONFIRMED' AND order_date BETWEEN ? AND ?
+                    GROUP BY 1
+                ), r AS (
+                    SELECT date_trunc('%1$s', return_date)::date AS period, sum(subtotal - discount_total) AS net,
+                           sum(tax_total) AS tax, sum(total) AS total
+                    FROM sales_returns WHERE return_date BETWEEN ? AND ?
+                    GROUP BY 1
+                )
+                SELECT coalesce(s.period, r.period) AS period, coalesce(s.orders, 0) AS orders,
+                       coalesce(s.gross, 0) AS gross, coalesce(s.discounts, 0) AS discounts, coalesce(r.net, 0) AS returns,
+                       coalesce(s.tax, 0) - coalesce(r.tax, 0) AS tax, coalesce(s.total, 0) AS sales_total,
+                       coalesce(s.total, 0) - coalesce(r.total, 0) AS total
+                FROM s FULL JOIN r ON r.period = s.period
+                ORDER BY 1
+                """.formatted(unit), (rs, i) -> {
+            salesTotals.add(rs.getBigDecimal("sales_total"));
+            return salesRow(rs.getObject("period", LocalDate.class), rs);
+        }, from, to, from, to);
         long orders = rows.stream().mapToLong(SalesRow::orders).sum();
-        SalesRow totals = salesRow(null, orders, sum(rows, SalesRow::grossSales), sum(rows, SalesRow::discounts), sum(rows, SalesRow::tax),
-                sum(rows, SalesRow::total));
+        BigDecimal salesTotal = salesTotals.stream().reduce(BigDecimal.ZERO, BigDecimal::add);
+        SalesRow totals = salesRow(null, orders, sum(rows, SalesRow::grossSales), sum(rows, SalesRow::discounts), sum(rows, SalesRow::returns),
+                sum(rows, SalesRow::tax), sum(rows, SalesRow::total), salesTotal);
         return new SalesReport(from, to, groupBy, rows, totals);
     }
 
-    /** Products sold in the period with revenue, cost of goods sold and profit. */
+    /**
+     * Products sold in the period with revenue, cost of goods sold and profit, net of returns made in the period.
+     * A returned item reduces quantity and revenue; its cost is reversed only if it went back to stock
+     * (a damaged item stays as a cost: the loss is real).
+     */
     public ProductReport products(LocalDate from, LocalDate to, String sortBy) {
         validate(from, to);
         List<ProductRow> rows = jdbc.query("""
-                SELECT p.id, p.sku, p.name, p.category,
-                       sum(l.quantity) AS quantity,
-                       sum(l.line_subtotal - l.line_discount) AS net,
-                       sum(l.unit_cost * l.quantity) AS cost
-                FROM sales_order_lines l
-                JOIN sales_orders o ON o.id = l.sales_order_id
-                JOIN products p ON p.id = l.product_id
-                WHERE o.status = 'CONFIRMED' AND o.order_date BETWEEN ? AND ?
+                WITH m AS (
+                    SELECT l.product_id, l.quantity AS qty, l.line_subtotal - l.line_discount AS net, l.unit_cost * l.quantity AS cost
+                    FROM sales_order_lines l JOIN sales_orders o ON o.id = l.sales_order_id
+                    WHERE o.status = 'CONFIRMED' AND o.order_date BETWEEN ? AND ?
+                    UNION ALL
+                    SELECT rl.product_id, -rl.quantity, -(rl.line_subtotal - rl.line_discount),
+                           CASE WHEN rl.restock THEN -rl.unit_cost * rl.quantity ELSE 0 END
+                    FROM sales_return_lines rl JOIN sales_returns r ON r.id = rl.sales_return_id
+                    WHERE r.return_date BETWEEN ? AND ?
+                )
+                SELECT p.id, p.sku, p.name, p.category, sum(m.qty) AS quantity, sum(m.net) AS net, sum(m.cost) AS cost
+                FROM m JOIN products p ON p.id = m.product_id
                 GROUP BY p.id, p.sku, p.name, p.category
                 """, (rs, i) -> productRow(rs.getObject("id", UUID.class), rs.getString("sku"), rs.getString("name"),
-                rs.getString("category"), rs.getLong("quantity"), rs.getBigDecimal("net"), rs.getBigDecimal("cost")), from, to);
+                rs.getString("category"), rs.getLong("quantity"), rs.getBigDecimal("net"), rs.getBigDecimal("cost")), from, to, from, to);
         Comparator<ProductRow> order = switch (sortBy == null ? "REVENUE" : sortBy.toUpperCase()) {
             case "QUANTITY" -> Comparator.comparingLong(ProductRow::quantity).reversed();
             case "PROFIT" -> Comparator.comparing(ProductRow::grossProfit).reversed();
@@ -118,13 +143,14 @@ public class ReportService {
     }
 
     private static SalesRow salesRow(LocalDate period, ResultSet rs) throws SQLException {
-        return salesRow(period, rs.getLong("orders"), rs.getBigDecimal("gross"), rs.getBigDecimal("discounts"), rs.getBigDecimal("tax"),
-                rs.getBigDecimal("total"));
+        return salesRow(period, rs.getLong("orders"), rs.getBigDecimal("gross"), rs.getBigDecimal("discounts"), rs.getBigDecimal("returns"),
+                rs.getBigDecimal("tax"), rs.getBigDecimal("total"), rs.getBigDecimal("sales_total"));
     }
 
-    private static SalesRow salesRow(LocalDate period, long orders, BigDecimal gross, BigDecimal discounts, BigDecimal tax, BigDecimal total) {
-        BigDecimal average = orders == 0 ? BigDecimal.ZERO : total.divide(BigDecimal.valueOf(orders), 2, RoundingMode.HALF_UP);
-        return new SalesRow(period, orders, gross, discounts, gross.subtract(discounts), tax, total, average);
+    private static SalesRow salesRow(LocalDate period, long orders, BigDecimal gross, BigDecimal discounts, BigDecimal returns, BigDecimal tax,
+            BigDecimal total, BigDecimal salesTotal) {
+        BigDecimal average = orders == 0 ? BigDecimal.ZERO : salesTotal.divide(BigDecimal.valueOf(orders), 2, RoundingMode.HALF_UP);
+        return new SalesRow(period, orders, gross, discounts, returns, gross.subtract(discounts).subtract(returns), tax, total, average);
     }
 
     private static ProductRow productRow(UUID id, String sku, String name, String category, long quantity, BigDecimal net, BigDecimal cost) {

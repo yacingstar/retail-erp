@@ -21,7 +21,7 @@ public class DocumentNumberService {
     }
 
     public enum DocumentType {
-        PURCHASE_ORDER("PO"), SALES_ORDER("SO"), INVOICE("INV");
+        PURCHASE_ORDER("PO"), SALES_ORDER("SO"), INVOICE("INV"), CREDIT_NOTE("CN");
 
         private final String prefix;
 

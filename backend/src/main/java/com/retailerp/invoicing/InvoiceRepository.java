@@ -31,6 +31,6 @@ public interface InvoiceRepository extends JpaRepository<Invoice, UUID> {
     @Query("select i from Invoice i where i.id = :id")
     Optional<Invoice> findForUpdate(@Param("id") UUID id);
 
-    @Query("select coalesce(sum(i.total - i.amountPaid), 0) from Invoice i where i.status in ('ISSUED', 'PARTIALLY_PAID')")
+    @Query("select coalesce(sum(i.total - i.amountPaid - i.amountCredited), 0) from Invoice i where i.status in ('ISSUED', 'PARTIALLY_PAID')")
     BigDecimal outstandingTotal();
 }

@@ -86,7 +86,7 @@ public class PosService {
         if (!shift.getOpenedBy().equals(CurrentUser.id()) && !CurrentUser.isManager()) {
             throw new AccessDeniedException("Only the cashier or a manager can close this shift.");
         }
-        BigDecimal expected = shift.getOpeningCash().add(shifts.cashTaken(id));
+        BigDecimal expected = shift.getOpeningCash().add(shifts.cashTaken(id)).subtract(shifts.cashRefunded(id));
         shift.close(CurrentUser.id(), expected, Money.round(request.countedCash()), request.notes());
         shifts.flush();
         return toResponse(shift);
@@ -108,11 +108,13 @@ public class PosService {
 
     private ShiftResponse toResponse(PosShift s) {
         SalesTotals totals = shifts.salesTotals(s.getId());
-        BigDecimal expected = s.getStatus() == ShiftStatus.OPEN ? s.getOpeningCash().add(shifts.cashTaken(s.getId())) : s.getExpectedCash();
+        BigDecimal cashRefunds = shifts.cashRefunded(s.getId());
+        BigDecimal expected = s.getStatus() == ShiftStatus.OPEN ? s.getOpeningCash().add(shifts.cashTaken(s.getId())).subtract(cashRefunds)
+                : s.getExpectedCash();
         BigDecimal difference = s.getCountedCash() == null ? null : s.getCountedCash().subtract(expected);
         return new ShiftResponse(s.getId(), s.getStatus(), s.getWarehouse().getId(), s.getWarehouse().getCode(), s.getWarehouse().getName(),
                 s.getOpenedBy(), users.findById(s.getOpenedBy()).map(User::getFullName).orElse(null), s.getOpenedAt(), s.getOpeningCash(), s.getClosedBy(), s.getClosedAt(), totals.count(), totals.total(),
-                shifts.paymentsByMethod(s.getId()), expected, s.getCountedCash(), difference, s.getNotes());
+                shifts.paymentsByMethod(s.getId()), cashRefunds, expected, s.getCountedCash(), difference, s.getNotes());
     }
 
     // --- checkout ----------------------------------------------------------------------------------------------------
@@ -120,8 +122,9 @@ public class PosService {
     public Receipt checkout(CheckoutRequest request) {
         PosShift shift = shifts.findFirstByOpenedByAndStatus(CurrentUser.id(), ShiftStatus.OPEN)
                 .orElseThrow(() -> new BusinessRuleException("Open a shift before selling."));
-        if (request.paymentMethod() != PaymentMethod.CASH && request.paymentMethod() != PaymentMethod.CARD) {
-            throw new IllegalArgumentException("At the till, payment is CASH or CARD.");
+        if (request.paymentMethod() != PaymentMethod.CASH && request.paymentMethod() != PaymentMethod.CARD
+                && request.paymentMethod() != PaymentMethod.STORE_CREDIT) {
+            throw new IllegalArgumentException("At the till, payment is CASH, CARD or STORE_CREDIT.");
         }
 
         SalesOrder order = sales.createConfirmed(new SalesOrderRequest(request.customerId(), shift.getWarehouse().getId(), null, null,

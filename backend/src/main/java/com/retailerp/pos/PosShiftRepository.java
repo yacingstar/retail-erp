@@ -38,6 +38,13 @@ public interface PosShiftRepository extends JpaRepository<PosShift, UUID> {
             """)
     List<PosDtos.MethodTotal> paymentsByMethod(@Param("shiftId") UUID shiftId);
 
+    /** Cash given back to customers (returns) during the shift: it leaves the drawer. */
+    @Query("""
+            select coalesce(sum(r.refundAmount), 0) from SalesReturn r
+            where r.posShiftId = :shiftId and r.refundMethod = com.retailerp.invoicing.PaymentMethod.CASH
+            """)
+    BigDecimal cashRefunded(@Param("shiftId") UUID shiftId);
+
     default BigDecimal cashTaken(UUID shiftId) {
         return paymentsByMethod(shiftId).stream().filter(t -> t.method() == PaymentMethod.CASH).map(PosDtos.MethodTotal::amount)
                 .findFirst().orElse(BigDecimal.ZERO);

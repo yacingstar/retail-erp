@@ -59,6 +59,14 @@ public class Invoice extends AuditedEntity {
     @Column(name = "amount_paid", nullable = false, precision = 14, scale = 2)
     private BigDecimal amountPaid = BigDecimal.ZERO;
 
+    /** Taken off by credit notes (returns). */
+    @Column(name = "amount_credited", nullable = false, precision = 14, scale = 2)
+    private BigDecimal amountCredited = BigDecimal.ZERO;
+
+    /** Money (or store credit) given back to the customer. */
+    @Column(name = "amount_refunded", nullable = false, precision = 14, scale = 2)
+    private BigDecimal amountRefunded = BigDecimal.ZERO;
+
     protected Invoice() {
     }
 
@@ -74,24 +82,58 @@ public class Invoice extends AuditedEntity {
         this.total = order.getTotal();
     }
 
+    /** What the customer still owes (never negative). */
     public BigDecimal balanceDue() {
-        return total.subtract(amountPaid);
+        return total.subtract(amountPaid).subtract(amountCredited).max(BigDecimal.ZERO);
+    }
+
+    /** What we owe the customer: they paid more than the invoice is worth after credit notes. */
+    public BigDecimal refundDue() {
+        return amountPaid.add(amountCredited).subtract(total).subtract(amountRefunded).max(BigDecimal.ZERO);
     }
 
     void registerPayment(BigDecimal amount) {
-        if (status == InvoiceStatus.VOID || status == InvoiceStatus.PAID) {
-            throw new BusinessRuleException("Invoice " + number + " is " + status + "; no payment can be recorded.");
+        if (status == InvoiceStatus.VOID || balanceDue().signum() == 0) {
+            throw new BusinessRuleException("Invoice " + number + " has nothing left to pay.");
         }
         if (amount.compareTo(balanceDue()) > 0) {
             throw new BusinessRuleException("Payment " + amount + " exceeds the balance due " + balanceDue() + ".");
         }
         amountPaid = amountPaid.add(amount);
-        status = balanceDue().signum() == 0 ? InvoiceStatus.PAID : InvoiceStatus.PARTIALLY_PAID;
+        updateStatus();
+    }
+
+    /** A credit note (return) reduces what the invoice is worth. */
+    public void applyCredit(BigDecimal amount) {
+        if (status == InvoiceStatus.VOID) {
+            throw new BusinessRuleException("Invoice " + number + " is void.");
+        }
+        amountCredited = amountCredited.add(amount);
+        updateStatus();
+    }
+
+    /** Money or store credit given back; can't exceed what's due. */
+    public void recordRefund(BigDecimal amount) {
+        if (amount.compareTo(refundDue()) > 0) {
+            throw new BusinessRuleException("Refund " + amount + " exceeds the refund due " + refundDue() + ".");
+        }
+        amountRefunded = amountRefunded.add(amount);
+    }
+
+    private void updateStatus() {
+        if (balanceDue().signum() > 0) {
+            status = amountPaid.signum() > 0 || amountCredited.signum() > 0 ? InvoiceStatus.PARTIALLY_PAID : InvoiceStatus.ISSUED;
+        } else {
+            status = amountPaid.signum() > 0 ? InvoiceStatus.PAID : InvoiceStatus.CREDITED;
+        }
     }
 
     public void voidInvoice() {
         if (amountPaid.signum() > 0) {
             throw new BusinessRuleException("Invoice " + number + " already has payments; it can't be voided.");
+        }
+        if (amountCredited.signum() > 0) {
+            throw new BusinessRuleException("Invoice " + number + " has credit notes (returns); it can't be voided.");
         }
         status = InvoiceStatus.VOID;
     }
@@ -138,5 +180,13 @@ public class Invoice extends AuditedEntity {
 
     public BigDecimal getAmountPaid() {
         return amountPaid;
+    }
+
+    public BigDecimal getAmountCredited() {
+        return amountCredited;
+    }
+
+    public BigDecimal getAmountRefunded() {
+        return amountRefunded;
     }
 }

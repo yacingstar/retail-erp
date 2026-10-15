@@ -25,6 +25,7 @@ import com.retailerp.numbering.DocumentNumberService.DocumentType;
 import com.retailerp.sales.Customer;
 import com.retailerp.sales.SalesDtos.LineResponse;
 import com.retailerp.sales.SalesOrder;
+import com.retailerp.sales.StoreCreditService;
 import com.retailerp.security.CurrentUser;
 
 @Service
@@ -34,10 +35,12 @@ public class InvoiceService {
     private final InvoiceRepository invoices;
     private final PaymentRepository payments;
     private final DocumentNumberService numbers;
+    private final StoreCreditService storeCredit;
     private final int paymentTermsDays;
 
-    public InvoiceService(InvoiceRepository invoices, PaymentRepository payments, DocumentNumberService numbers,
+    public InvoiceService(InvoiceRepository invoices, PaymentRepository payments, DocumentNumberService numbers, StoreCreditService storeCredit,
             @Value("${app.invoice.payment-terms-days:30}") int paymentTermsDays) {
+        this.storeCredit = storeCredit;
         this.invoices = invoices;
         this.payments = payments;
         this.numbers = numbers;
@@ -76,9 +79,22 @@ public class InvoiceService {
         Invoice invoice = invoices.findForUpdate(invoiceId).orElseThrow(() -> new NotFoundException("Invoice", invoiceId));
         BigDecimal amount = Money.round(request.amount());
         invoice.registerPayment(amount);
+        if (request.method() == PaymentMethod.STORE_CREDIT) {
+            if (invoice.getCustomer() == null) {
+                throw new com.retailerp.common.BusinessRuleException("Store credit needs a named customer on the invoice.");
+            }
+            storeCredit.spend(invoice.getCustomer(), amount, invoice.getId(), "Payment of " + invoice.getNumber());
+        }
         payments.save(new Payment(invoice, amount, request.method(), request.reference(),
                 request.paidAt() != null ? request.paidAt() : Instant.now(), CurrentUser.id()));
         return toResponse(invoice);
+    }
+
+    /** Locks the invoice of a sales order (SELECT ... FOR UPDATE) so returns on the same sale run one at a time. */
+    @Transactional(propagation = Propagation.MANDATORY)
+    public Invoice lockFor(UUID salesOrderId) {
+        Invoice invoice = invoices.findBySalesOrderId(salesOrderId).orElseThrow(() -> new NotFoundException("Invoice for sales order", salesOrderId));
+        return invoices.findForUpdate(invoice.getId()).orElseThrow();
     }
 
     @Transactional(readOnly = true)
@@ -94,6 +110,6 @@ public class InvoiceService {
                 c == null ? null : c.getId(), c == null ? null : c.getName(), c == null ? null : c.getEmail(),
                 c == null ? null : c.getAddress(), i.getStatus(), i.getIssueDate(), i.getDueDate(), i.getSubtotal(), i.getDiscountTotal(),
                 i.getTaxTotal(),
-                i.getTotal(), i.getAmountPaid(), i.balanceDue(), lines, paid);
+                i.getTotal(), i.getAmountPaid(), i.getAmountCredited(), i.getAmountRefunded(), i.balanceDue(), lines, paid);
     }
 }
