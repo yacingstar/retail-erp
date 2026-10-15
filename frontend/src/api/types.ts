@@ -241,7 +241,7 @@ export interface Dashboard {
   recentSales: SalesOrderSummary[]
 }
 
-export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS' | 'SUPPLIER_BILLS' | 'PROMOTIONS'
+export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS' | 'SUPPLIER_BILLS' | 'PROMOTIONS' | 'ACCOUNTING'
 
 export interface PlanInfo {
   code: string
@@ -456,7 +456,10 @@ export interface Bill extends Omit<BillSummary, 'purchaseOrderNumber'> {
   purchaseOrderId: string | null
   purchaseOrderNumber: string | null
   approvedAt: string | null
-  lines: { lineNo: number; description: string; quantity: number; unitPrice: number; lineTotal: number }[]
+  expenseAccount: string | null
+  subtotal: number
+  taxTotal: number
+  lines: { lineNo: number; description: string; quantity: number; unitPrice: number; lineTotal: number; taxRate: number; lineTax: number }[]
   payments: { id: string; amount: number; method: SupplierPaymentMethod; reference: string | null; paidAt: string }[]
 }
 
@@ -499,4 +502,96 @@ export interface PriceListSummary {
 
 export interface PriceList extends PriceListSummary {
   items: { productId: string; sku: string; productName: string; normalPrice: number; price: number }[]
+}
+
+export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'INCOME' | 'EXPENSE'
+
+export interface Account {
+  code: string
+  name: string
+  type: AccountType
+  system: boolean
+}
+
+export interface JournalLine {
+  lineNo: number
+  accountCode: string
+  accountName: string
+  debit: number
+  credit: number
+  memo: string | null
+}
+
+export interface JournalEntry {
+  id: string
+  number: string
+  entryDate: string
+  description: string
+  sourceType: string
+  sourceId: string | null
+  total: number
+  lines: JournalLine[]
+  createdAt: string
+}
+
+export interface AccountBalance {
+  code: string
+  name: string
+  type: AccountType
+  debit: number
+  credit: number
+  balance: number
+}
+
+export interface TrialBalance {
+  from: string
+  to: string
+  accounts: AccountBalance[]
+  totalDebit: number
+  totalCredit: number
+}
+
+export interface Ledger {
+  code: string
+  name: string
+  type: AccountType
+  from: string
+  to: string
+  opening: number
+  rows: { date: string; entryId: string; entryNumber: string; description: string; debit: number; credit: number; balance: number }[]
+  closing: number
+}
+
+export interface ProfitAndLoss {
+  from: string
+  to: string
+  income: AccountBalance[]
+  totalIncome: number
+  expenses: AccountBalance[]
+  totalExpenses: number
+  netResult: number
+}
+
+export interface BalanceSheet {
+  date: string
+  assets: AccountBalance[]
+  totalAssets: number
+  liabilities: AccountBalance[]
+  totalLiabilities: number
+  equity: AccountBalance[]
+  currentResult: number
+  totalEquity: number
+  totalLiabilitiesAndEquity: number
+}
+
+export interface VatRow { rate: number; base: number; tax: number }
+
+export interface VatReport {
+  from: string
+  to: string
+  sales: VatRow[]
+  collected: number
+  purchases: VatRow[]
+  deductible: number
+  payable: number
 }

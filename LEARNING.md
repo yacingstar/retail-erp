@@ -458,6 +458,63 @@ pages [`PromotionPages.tsx`](frontend/src/pages/PromotionPages.tsx).
 
 ---
 
+## 8h. Accounting (Algeria: SCF, TVA)
+
+Package [`accounting`](backend/src/main/java/com/retailerp/accounting), migration `V13__accounting.sql`,
+pages [`AccountingPages.tsx`](frontend/src/pages/AccountingPages.tsx). Pro plan only.
+
+- **Double entry in one sentence:** every event is written as a *journal entry* whose lines move money between
+  *accounts*; the debits always equal the credits. Assets and expenses grow on the debit side; liabilities, equity
+  and income grow on the credit side. Because every entry balances, *assets = liabilities + equity (+ this year's
+  result)* is always true: that's the balance sheet check you see on the page.
+- **Chart of accounts:** [`ChartOfAccounts`](backend/src/main/java/com/retailerp/accounting/ChartOfAccounts.java)
+  seeds the main accounts of the Algerian *Système Comptable Financier* (French names; class 1 equity, 3 stock,
+  4 third parties, 5 cash/bank, 6 expenses, 7 income). It is created lazily per tenant (`ensureChart`, an
+  `INSERT … ON CONFLICT DO NOTHING`) the first time something is posted; admins can add accounts.
+- **Automatic entries via events:** the sales, invoicing, returns, purchasing, payables and inventory services each
+  publish a small event record (`SalesOrderConfirmed`, `InvoicePaymentRecorded`, `SupplierBillApproved`,
+  `StockAdjusted`…). [`AccountingPostings`](backend/src/main/java/com/retailerp/accounting/AccountingPostings.java)
+  listens and posts. Same pattern as purchasing → bills (§8f): synchronous, *same transaction*, so a sale can never
+  exist without its entry, and no module imports the accounting package. Entries are posted on **every plan**;
+  only the *screens* need Pro. So a shop that upgrades (or comes back after the trial) finds complete books.
+- **What gets posted (account numbers):**
+
+  | Event | Debit | Credit |
+  |---|---|---|
+  | Sale confirmed | 411 customers (total) | 700 sales (net), 4457 TVA collected |
+  | … its cost | 600 cost of goods sold | 300 stock |
+  | Customer payment | 530 cash / 512 bank / 4191 store credit | 411 |
+  | Return (credit note) | 700, 4457 | 411 (+ 300 / 600 for restocked items, + refund 411 / 530…) |
+  | Goods received from a PO | 300 stock | 408 suppliers, bills not received |
+  | Supplier bill approved | 408 (PO bills) or the bill's expense account (613 rent…), 4456 TVA deductible | 401 suppliers |
+  | Supplier payment | 401 | 530 / 512 |
+  | Stock adjustment | gain: 300 / loss: 658 | gain: 758 / loss: 300 |
+
+  Cancelling a sale or voiding an approved bill posts the *reverse* entry: the journal is never edited.
+- **Why 408 for received goods?** Stock arrives before the supplier's bill. 408 "bills not yet received" holds the
+  debt until the bill is approved; then it moves to 401. If the paper bill differs from the PO (a delivery fee), the
+  difference goes to stock.
+- **Append-only, enforced by the database** (like stock movements, §7): the app's role has no `UPDATE`/`DELETE` on
+  `journal_entries`/`journal_lines`. A **deferred constraint trigger** (`journal_lines_balanced`) checks at *commit*
+  time that every entry balances. Deferred, because the lines are inserted one by one: after the first line the
+  entry is unbalanced, and only the finished transaction must be correct. `JournalService` also checks it in Java
+  first, to give a clear error instead of a failed commit.
+- **TVA:** products already had a tax rate (19% or 9% in Algeria); supplier bill lines now have one too. The TVA
+  report groups sales (minus returns) and approved bills by rate: collected − deductible = what you pay (G50
+  declaration), or a credit to carry forward if negative.
+- **Statements are just sums:** trial balance = Σ debits and credits per account over a period; P&L = income −
+  expenses over a period; balance sheet = everything up to a date, with the year's result shown in equity. All of it
+  is a single SQL `LEFT JOIN` of accounts with journal lines (`AccountingService.balances`).
+- **Manual entries (admins only):** for what the app doesn't see: the owner's capital, a bank loan, cash deposited
+  at the bank, salaries, paying the TVA. They must balance and can't be changed afterwards: fix a mistake with a
+  reversing entry.
+- **Known simplifications:** opening stock entered as a stock adjustment counts as income (758). An accountant would
+  instead post it against capital: a manual entry Dr 758 / Cr 101 moves it. Sales and bills from before this
+  update (V13) are not posted retroactively. There's no year-end closing or IBS (profit tax) calculation: check with an
+  accountant before relying on it for official filings.
+
+---
+
 ## 9. Frontend
 
 - **Vite** serves the React app in dev with instant reload and builds static files for production. Its proxy
@@ -510,7 +567,8 @@ pages [`PromotionPages.tsx`](frontend/src/pages/PromotionPages.tsx).
 - Refresh tokens + short access tokens, logout/revocation; rate limiting on `/api/auth/login`.
 - Email verification and password reset.
 - A stock balance table for very large movement volumes; stock counts (cycle counting) workflow.
-- Partial receipts on purchase orders; returns/refunds as their own documents; credit notes.
+- Partial receipts on purchase orders.
+- Accounting: year-end closing, IBS, opening balances import, fixed assets and depreciation.
 - Audit log (who changed what), soft deletes where needed.
 - Dockerfile for the backend, serving the built frontend, HTTPS, production profile (`springdoc` off).
 - Frontend tests (Vitest + Testing Library, Playwright end-to-end).

@@ -2,7 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, query } from '../api/client'
-import type { Bill, BillStatus, BillSummary, Page, Party, SupplierPaymentMethod, SupplierStatement } from '../api/types'
+import type { Account, Bill, BillStatus, BillSummary, Page, Party, SupplierPaymentMethod, SupplierStatement } from '../api/types'
+import { useSubscription } from '../auth/useSubscription'
 import { date, dateTime, label, money } from '../components/format'
 import { Badge, Empty, ErrorBox, Field, fieldError, Loading, PageHeader, Pagination, SearchBox, useDebounced } from '../components/ui'
 
@@ -58,7 +59,10 @@ export function BillsPage() {
   )
 }
 
-interface EditableLine { description: string; quantity: string; unitPrice: string }
+interface EditableLine { description: string; quantity: string; unitPrice: string; taxRate: string }
+
+const lineSubtotal = (l: EditableLine) => (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0)
+const lineTax = (l: EditableLine) => Math.round(lineSubtotal(l) * (Number(l.taxRate) || 0)) / 100
 
 export function BillFormPage() {
   const { id } = useParams()
@@ -67,6 +71,8 @@ export function BillFormPage() {
   if (id && !existing.data) return <ErrorBox error={existing.error} />
   return <BillForm bill={existing.data ?? null} />
 }
+
+const NEW_LINE: EditableLine = { description: '', quantity: '1', unitPrice: '', taxRate: '0' }
 
 function BillForm({ bill }: { bill: Bill | null }) {
   const navigate = useNavigate()
@@ -77,16 +83,23 @@ function BillForm({ bill }: { bill: Bill | null }) {
   const [billDate, setBillDate] = useState(bill?.billDate ?? new Date().toISOString().slice(0, 10))
   const [dueDate, setDueDate] = useState(bill?.dueDate ?? '')
   const [description, setDescription] = useState(bill?.description ?? '')
-  const [lines, setLines] = useState<EditableLine[]>(bill?.lines.map((l) => ({ description: l.description, quantity: String(l.quantity), unitPrice: String(l.unitPrice) }))
-    ?? [{ description: '', quantity: '1', unitPrice: '' }])
-  const total = lines.reduce((sum, l) => sum + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0), 0)
+  const [expenseAccount, setExpenseAccount] = useState(bill?.expenseAccount ?? '607')
+  const [lines, setLines] = useState<EditableLine[]>(bill?.lines.map((l) => ({ description: l.description, quantity: String(l.quantity), unitPrice: String(l.unitPrice), taxRate: String(l.taxRate) }))
+    ?? [{ ...NEW_LINE }])
+  const { has } = useSubscription()
+  // The expense account only matters for bills not linked to a PO (goods from a PO go to stock), and needs the chart.
+  const pickAccount = has('ACCOUNTING') && !bill?.purchaseOrderId
+  const accounts = useQuery({ queryKey: ['accounting', 'accounts'], queryFn: () => api.get<Account[]>('/api/accounting/accounts'), enabled: pickAccount })
+  const subtotal = lines.reduce((sum, l) => sum + lineSubtotal(l), 0)
+  const tax = lines.reduce((sum, l) => sum + lineTax(l), 0)
   const update = (i: number, patch: Partial<EditableLine>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)))
 
   const save = useMutation({
     mutationFn: () => {
       const body = {
         supplierId, supplierReference: reference || null, billDate, dueDate: dueDate || null, description: description || null,
-        lines: lines.map((l) => ({ description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice) })),
+        expenseAccount: bill?.purchaseOrderId ? null : expenseAccount,
+        lines: lines.map((l) => ({ description: l.description, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice), taxRate: Number(l.taxRate) || 0 })),
       }
       return bill ? api.put<Bill>(`/api/bills/${bill.id}`, body) : api.post<Bill>('/api/bills', body)
     },
@@ -108,23 +121,35 @@ function BillForm({ bill }: { bill: Bill | null }) {
           <Field label="Supplier's bill number"><input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="As printed on their bill" /></Field>
           <Field label="Bill date"><input type="date" value={billDate} onChange={(e) => setBillDate(e.target.value)} required /></Field>
           <Field label="Due date (optional)"><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>
+          {pickAccount && (
+            <Field label="Expense account" error={fieldError(save.error, 'expenseAccount')}>
+              <select value={expenseAccount} onChange={(e) => setExpenseAccount(e.target.value)}>
+                {accounts.data?.filter((a) => a.type === 'EXPENSE' || a.type === 'ASSET').map((a) => <option key={a.code} value={a.code}>{a.code} · {a.name}</option>)}
+              </select>
+            </Field>
+          )}
         </div>
         <table className="table">
-          <thead><tr><th>Description</th><th style={{ width: 110 }}>Qty</th><th style={{ width: 140 }}>Unit price</th><th className="num">Line</th><th /></tr></thead>
+          <thead><tr><th>Description</th><th style={{ width: 110 }}>Qty</th><th style={{ width: 140 }}>Unit price</th><th style={{ width: 100 }}>TVA %</th><th className="num">Line</th><th /></tr></thead>
           <tbody>
             {lines.map((l, i) => (
               <tr key={i}>
                 <td><input value={l.description} onChange={(e) => update(i, { description: e.target.value })} placeholder="e.g. Rent, October" required /></td>
                 <td><input type="number" min="0.001" step="0.001" value={l.quantity} onChange={(e) => update(i, { quantity: e.target.value })} required /></td>
                 <td><input type="number" min="0" step="0.01" value={l.unitPrice} onChange={(e) => update(i, { unitPrice: e.target.value })} required /></td>
-                <td className="num">{money((Number(l.quantity) || 0) * (Number(l.unitPrice) || 0))}</td>
+                <td><input type="number" min="0" max="100" step="0.01" value={l.taxRate} onChange={(e) => update(i, { taxRate: e.target.value })} aria-label="TVA %" /></td>
+                <td className="num">{money(lineSubtotal(l))}</td>
                 <td><button type="button" className="btn-icon" onClick={() => setLines(lines.filter((_, j) => j !== i))} aria-label="Remove line">×</button></td>
               </tr>
             ))}
           </tbody>
-          <tfoot><tr className="total-row"><td colSpan={3}>Total</td><td className="num">{money(total)}</td><td /></tr></tfoot>
+          <tfoot>
+            <tr><td colSpan={4} className="num">Subtotal</td><td className="num">{money(subtotal)}</td><td /></tr>
+            <tr><td colSpan={4} className="num">TVA</td><td className="num">{money(tax)}</td><td /></tr>
+            <tr className="total-row"><td colSpan={4}>Total</td><td className="num">{money(subtotal + tax)}</td><td /></tr>
+          </tfoot>
         </table>
-        <button type="button" className="btn btn-small" onClick={() => setLines([...lines, { description: '', quantity: '1', unitPrice: '' }])}>+ Add line</button>
+        <button type="button" className="btn btn-small" onClick={() => setLines([...lines, { ...NEW_LINE }])}>+ Add line</button>
         <Field label="Notes"><textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
         <div className="modal-actions">
           <span className="spacer" />
@@ -170,12 +195,14 @@ export function BillDetailPage() {
       </div>
       <div className="card">
         <table className="table">
-          <thead><tr><th>#</th><th>Description</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">Total</th></tr></thead>
-          <tbody>{b.lines.map((l) => <tr key={l.lineNo}><td>{l.lineNo}</td><td>{l.description}</td><td className="num">{l.quantity}</td><td className="num">{money(l.unitPrice)}</td><td className="num">{money(l.lineTotal)}</td></tr>)}</tbody>
+          <thead><tr><th>#</th><th>Description</th><th className="num">Qty</th><th className="num">Unit price</th><th className="num">TVA</th><th className="num">Total</th></tr></thead>
+          <tbody>{b.lines.map((l) => <tr key={l.lineNo}><td>{l.lineNo}</td><td>{l.description}</td><td className="num">{l.quantity}</td><td className="num">{money(l.unitPrice)}</td><td className="num">{Number(l.taxRate)}%</td><td className="num">{money(l.lineTotal)}</td></tr>)}</tbody>
           <tfoot>
-            <tr><td colSpan={4} className="num"><strong>Total</strong></td><td className="num"><strong>{money(b.total)}</strong></td></tr>
-            <tr><td colSpan={4} className="num">Paid</td><td className="num">{money(b.amountPaid)}</td></tr>
-            <tr><td colSpan={4} className="num"><strong>Still owed</strong></td><td className="num"><strong>{money(b.balanceDue)}</strong></td></tr>
+            <tr><td colSpan={5} className="num">Subtotal</td><td className="num">{money(b.subtotal)}</td></tr>
+            <tr><td colSpan={5} className="num">TVA</td><td className="num">{money(b.taxTotal)}</td></tr>
+            <tr><td colSpan={5} className="num"><strong>Total</strong></td><td className="num"><strong>{money(b.total)}</strong></td></tr>
+            <tr><td colSpan={5} className="num">Paid</td><td className="num">{money(b.amountPaid)}</td></tr>
+            <tr><td colSpan={5} className="num"><strong>Still owed</strong></td><td className="num"><strong>{money(b.balanceDue)}</strong></td></tr>
           </tfoot>
         </table>
         {b.description && <p className="muted">{b.description}</p>}
