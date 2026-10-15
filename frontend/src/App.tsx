@@ -10,6 +10,7 @@ import { InvoiceDetailPage, InvoicesPage } from './pages/InvoicePages'
 import { NotInPlan, PlanPage } from './pages/PlanPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { NewReturnPage, ReturnDetailPage, ReturnsPage } from './pages/ReturnPages'
+import { BillDetailPage, BillFormPage, BillsPage, SupplierStatementPage } from './pages/BillPages'
 import { PlatformLoginPage, PlatformTenantsPage } from './pages/PlatformPages'
 import { useSubscription } from './auth/useSubscription'
 import { PartiesPage } from './pages/PartiesPage'
@@ -65,6 +66,11 @@ export function App() {
         <Route path="invoices/:id" element={<InvoiceDetailPage />} />
         <Route path="users" element={<RequireAuth roles={['ADMIN']}><UsersPage /></RequireAuth>} />
         <Route path="plan" element={<PlanPage />} />
+        <Route path="bills" element={<RequireAuth roles={MANAGE}><RequireModule module="SUPPLIER_BILLS" name="Supplier bills"><BillsPage /></RequireModule></RequireAuth>} />
+        <Route path="bills/new" element={<RequireAuth roles={MANAGE}><RequireModule module="SUPPLIER_BILLS" name="Supplier bills"><BillFormPage /></RequireModule></RequireAuth>} />
+        <Route path="bills/:id" element={<RequireAuth roles={MANAGE}><RequireModule module="SUPPLIER_BILLS" name="Supplier bills"><BillDetailPage /></RequireModule></RequireAuth>} />
+        <Route path="bills/:id/edit" element={<RequireAuth roles={MANAGE}><RequireModule module="SUPPLIER_BILLS" name="Supplier bills"><BillFormPage /></RequireModule></RequireAuth>} />
+        <Route path="suppliers/:id/statement" element={<RequireAuth roles={MANAGE}><RequireModule module="SUPPLIER_BILLS" name="Supplier bills"><SupplierStatementPage /></RequireModule></RequireAuth>} />
         <Route path="returns" element={<RequireModule module="RETURNS" name="Returns"><ReturnsPage /></RequireModule>} />
         <Route path="returns/new" element={<RequireModule module="RETURNS" name="Returns"><NewReturnPage /></RequireModule>} />
         <Route path="returns/:id" element={<RequireModule module="RETURNS" name="Returns"><ReturnDetailPage /></RequireModule>} />

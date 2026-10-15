@@ -231,12 +231,13 @@ export interface Dashboard {
   salesToday: number
   salesLast30Days: number
   outstandingReceivables: number
+  outstandingPayables: number
   lowStock: LowStock[]
   dailySales: DailySales[]
   recentSales: SalesOrderSummary[]
 }
 
-export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS'
+export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS' | 'SUPPLIER_BILLS'
 
 export interface PlanInfo {
   code: string
@@ -426,4 +427,40 @@ export interface StoreCredit {
   customerId: string
   balance: number
   entries: { amount: number; reason: 'RETURN_REFUND' | 'PAYMENT'; referenceId: string | null; note: string | null; createdAt: string }[]
+}
+
+export type BillStatus = 'DRAFT' | 'OPEN' | 'PARTIALLY_PAID' | 'PAID' | 'VOID'
+export type SupplierPaymentMethod = 'CASH' | 'BANK_TRANSFER' | 'CHEQUE' | 'CARD' | 'OTHER'
+
+export interface BillSummary {
+  id: string
+  number: string
+  supplierReference: string | null
+  supplierId: string
+  supplierName: string
+  status: BillStatus
+  billDate: string
+  dueDate: string | null
+  total: number
+  amountPaid: number
+  balanceDue: number
+  purchaseOrderNumber: string | null
+}
+
+export interface Bill extends Omit<BillSummary, 'purchaseOrderNumber'> {
+  description: string | null
+  purchaseOrderId: string | null
+  purchaseOrderNumber: string | null
+  approvedAt: string | null
+  lines: { lineNo: number; description: string; quantity: number; unitPrice: number; lineTotal: number }[]
+  payments: { id: string; amount: number; method: SupplierPaymentMethod; reference: string | null; paidAt: string }[]
+}
+
+export interface SupplierStatement {
+  supplierId: string
+  supplierName: string
+  totalBilled: number
+  totalPaid: number
+  balance: number
+  entries: { date: string; type: 'BILL' | 'PAYMENT'; billId: string; document: string; reference: string | null; amount: number; balance: number }[]
 }

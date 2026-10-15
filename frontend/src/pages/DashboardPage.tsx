@@ -1,11 +1,15 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../api/client'
+import { useAuth } from '../auth/AuthContext'
+import { useSubscription } from '../auth/useSubscription'
 import type { Dashboard } from '../api/types'
 import { date, money } from '../components/format'
 import { Badge, Empty, ErrorBox, Loading, PageHeader } from '../components/ui'
 
 export function DashboardPage() {
+  const { has } = useSubscription()
+  const { hasRole } = useAuth()
   const { data, error, isLoading } = useQuery({ queryKey: ['dashboard'], queryFn: () => api.get<Dashboard>('/api/dashboard') })
   if (isLoading) return <Loading />
   if (error || !data) return <ErrorBox error={error} />
@@ -18,6 +22,7 @@ export function DashboardPage() {
         <Stat label="Sales today" value={money(data.salesToday)} />
         <Stat label="Sales (30 days)" value={money(data.salesLast30Days)} />
         <Stat label="Outstanding invoices" value={money(data.outstandingReceivables)} />
+        {has('SUPPLIER_BILLS') && hasRole('ADMIN', 'MANAGER') && <Stat label="Owed to suppliers" value={money(data.outstandingPayables)} />}
         <Stat label="Open purchase orders" value={String(data.openPurchaseOrders)} />
         <Stat label="Active products" value={String(data.activeProducts)} />
         <Stat label="Customers" value={String(data.activeCustomers)} />

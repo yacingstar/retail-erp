@@ -33,7 +33,7 @@ export function Field({ label: text, error, children }: { label: string; error?:
 }
 
 const BADGE_TONES: Record<string, string> = {
-  DRAFT: 'grey', ORDERED: 'blue', RECEIVED: 'green', CANCELLED: 'red', CONFIRMED: 'green',
+  DRAFT: 'grey', OPEN: 'blue', ORDERED: 'blue', RECEIVED: 'green', CANCELLED: 'red', CONFIRMED: 'green',
   ISSUED: 'blue', PARTIALLY_PAID: 'amber', PAID: 'green', CREDITED: 'purple', VOID: 'red',
   ADMIN: 'purple', MANAGER: 'blue', CASHIER: 'grey', true: 'green', false: 'red',
 }

@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, query } from '../api/client'
 import type { Page, Party, StoreCredit } from '../api/types'
+import { Link } from 'react-router-dom'
+import { useSubscription } from '../auth/useSubscription'
 import { date, label, money } from '../components/format'
 import { useAuth } from '../auth/AuthContext'
 import { Badge, Empty, ErrorBox, Field, fieldError, Loading, Modal, PageHeader, Pagination, SearchBox, useDebounced } from '../components/ui'
@@ -46,6 +48,7 @@ export function PartiesPage({ kind }: { kind: 'customers' | 'suppliers' }) {
 }
 
 function PartyForm({ kind, party, canDelete, onClose }: { kind: string; party: Party | null; canDelete: boolean; onClose: () => void }) {
+  const { has } = useSubscription()
   const queryClient = useQueryClient()
   const [form, setForm] = useState({
     name: party?.name ?? '', email: party?.email ?? '', phone: party?.phone ?? '', address: party?.address ?? '', notes: party?.notes ?? '', active: party?.active ?? true,
@@ -75,6 +78,9 @@ function PartyForm({ kind, party, canDelete, onClose }: { kind: string; party: P
         <Field label="Address"><textarea rows={2} value={form.address} onChange={set('address')} /></Field>
         <Field label="Notes"><textarea rows={2} value={form.notes} onChange={set('notes')} /></Field>
         {kind === 'customers' && party && <StoreCreditInfo customerId={party.id} />}
+        {kind === 'suppliers' && party && has('SUPPLIER_BILLS') && (
+          <p><Link to={`/suppliers/${party.id}/statement`}>View statement (bills &amp; payments)</Link></p>
+        )}
         <div className="modal-actions">
           {party && canDelete && <button type="button" className="btn btn-danger" onClick={() => confirm('Delete? Records with orders can only be deactivated.') && remove.mutate()}>Delete</button>}
           <span className="spacer" />

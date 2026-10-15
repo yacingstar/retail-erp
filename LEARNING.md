@@ -404,6 +404,31 @@ Packages [`returns`](backend/src/main/java/com/retailerp/returns) and `sales` (s
 
 ---
 
+## 8f. Supplier bills (payables)
+
+Package [`payables`](backend/src/main/java/com/retailerp/payables), migration `V11__supplier_bills.sql`, pages
+[`BillPages.tsx`](frontend/src/pages/BillPages.tsx).
+
+- **Spring application events.** When goods are received, `PurchasingService` publishes a `PurchaseOrderReceived`
+  event (`ApplicationEventPublisher.publishEvent`). `PayablesService.onPurchaseOrderReceived` is annotated
+  `@EventListener`, so Spring calls it automatically. Purchasing has **no dependency** on payables: you could remove
+  the whole package and purchasing would still compile. That's the main reason to use events between modules.
+- **Synchronous by default:** the listener runs in the same thread and the same transaction. If creating the bill
+  failed, the goods receipt would roll back too. (`@TransactionalEventListener(phase = AFTER_COMMIT)` or `@Async`
+  would decouple them further, at the cost of "receipt saved, bill missing" situations.)
+- **The listener checks the plan:** a shop without the Supplier bills module still receives goods; it just gets no
+  bill.
+- **Draft → approved:** the automatic bill is a *draft* because the supplier's paper bill can differ (delivery fee,
+  price change). Only approved bills count as owed. Drafts can be edited; approved bills can't.
+- **One bill per purchase order** is a database `UNIQUE (purchase_order_id)` constraint, so a double receipt can never
+  bill twice, whatever the code does.
+- **Supplier statement:** approved bills (+) and payments (−) sorted by date with a running balance, the classic
+  "account statement" layout. Nothing is stored; it's computed from the documents.
+- **`amount_paid <= total`** is also a `CHECK` constraint: the service refuses overpayments, and the database refuses
+  them again if the service ever has a bug.
+
+---
+
 ## 9. Frontend
 
 - **Vite** serves the React app in dev with instant reload and builds static files for production. Its proxy

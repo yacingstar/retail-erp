@@ -7,6 +7,8 @@ import { date, dateTime, money } from '../components/format'
 import { LinesEditor, type EditableLine } from '../components/LinesEditor'
 import { Badge, Empty, ErrorBox, Field, Loading, PageHeader, Pagination, SearchBox, useDebounced } from '../components/ui'
 import { MovementsTable } from './StockPage'
+import { useSubscription } from '../auth/useSubscription'
+import type { Bill } from '../api/types'
 
 const STATUSES: PurchaseOrderStatus[] = ['DRAFT', 'ORDERED', 'RECEIVED', 'CANCELLED']
 
@@ -118,6 +120,7 @@ export function PurchaseOrderDetailPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const order = useQuery({ queryKey: ['purchase-orders', id], queryFn: () => api.get<PurchaseOrder>(`/api/purchase-orders/${id}`) })
+  const subscription = useSubscription()
   const action = useMutation({
     mutationFn: (name: 'order' | 'receive' | 'cancel') => api.post<PurchaseOrder>(`/api/purchase-orders/${id}/${name}`),
     onSuccess: (updated) => {
@@ -163,7 +166,25 @@ export function PurchaseOrderDetailPage() {
         </table>
         {po.notes && <p className="muted">{po.notes}</p>}
       </div>
+      {po.status === 'RECEIVED' && subscription.has('SUPPLIER_BILLS') && <PoBillLink purchaseOrderId={po.id} />}
       {po.movements.length > 0 && <div className="card"><h2>Stock movements</h2><MovementsTable movements={po.movements} /></div>}
     </>
+  )
+}
+
+/** The supplier bill created when this order was received (if any). */
+function PoBillLink({ purchaseOrderId }: { purchaseOrderId: string }) {
+  const bill = useQuery({
+    queryKey: ['bills', 'by-po', purchaseOrderId],
+    queryFn: () => api.get<Bill>(`/api/bills/by-purchase-order/${purchaseOrderId}`),
+    retry: false,
+  })
+  if (!bill.data) return null
+  return (
+    <div className="card">
+      <h2>Supplier bill</h2>
+      <Link to={`/bills/${bill.data.id}`}>{bill.data.number}</Link> · <Badge value={bill.data.status} /> · {money(bill.data.total)}
+      {bill.data.status === 'DRAFT' && <span className="muted"> · check it against the supplier's paper bill, then approve it</span>}
+    </div>
   )
 }
