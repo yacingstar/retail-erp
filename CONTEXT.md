@@ -3,7 +3,7 @@
 > **Source of truth for this project.** Read this first at the start of every session (human or AI).
 > Keep it up to date: when a decision is made, a step is finished, or a new gotcha appears, update the relevant section.
 
-_Last updated: 2026-09-27_
+_Last updated: 2026-10-18_
 
 ---
 
@@ -11,10 +11,10 @@ _Last updated: 2026-09-27_
 
 | | |
 |---|---|
-| **Current phase** | **Step 2 (Entities, JPA, Flyway)**, sub-step **2.1: PostgreSQL in Docker Compose** |
-| **Last thing done** | Checked that the Docker engine runs (0 images/containers/volumes) and where Docker stores data (D:, see §8). Gave the user the compose-file task + skeleton. |
-| **Pending / open** | **The user is writing `retail-erp/compose.yaml`** (the file doesn't exist yet). Claude reviews it when the user says "done". See §12 for the task spec. |
-| **Next step** | After the review: `docker compose up -d`, check the container is healthy, connect with `psql` inside the container. Then 2.2: add Spring Data JPA + PostgreSQL driver, set `spring.datasource.*`, and explain `DataSource` auto-configuration (HikariCP). Then Flyway. |
+| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–8 of §4b done (plans, POS, Reports, Returns, Supplier bills, Promotions, Accounting, HR & payroll) |
+| **Last thing done** | HR & payroll for Algeria (employees, monthly runs, CNAS/IRG payslips, printable bulletin de paie, posted to accounting; 68 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
+| **Pending / open** | User reviews/merges PR [yacingstar/retail-erp#1](https://github.com/yacingstar/retail-erp/pull/1). |
+| **Next step** | Only feature 9 (Stripe, marked "later") is left in §4b: ask the user whether to do it now, and its sub-features. **Before each feature, ask the user which sub-features they want** (their rule). |
 
 ---
 
@@ -43,17 +43,49 @@ The user is here to **LEARN**, not just to get code.
 - Point out **common mistakes and bad practices** related to what we're doing.
 - Things that need the user at the keyboard (logins, generating keys, passphrases) are run by the user, not by the assistant.
 
+> **Change in session 2 (2026-10-13):** the user asked Claude to build the entire project in one go and chose
+> **"build all, explain after"**: Claude built everything, committed per roadmap step, and wrote `LEARNING.md` as
+> the walkthrough to study. For future work, ask which mode the user wants (back to small steps, or build + explain).
+
 ---
 
 ## 4. Order of work (roadmap)
 
 1. ✅ Project setup and structure
-2. ⏭️ Entities, JPA, Flyway migrations
-3. REST controllers, DTOs, validation, error handling
-4. Spring Security + JWT
-5. Multi-tenancy + isolation tests
-6. Products + inventory module
-7. Frontend, then alternate backend/frontend per module
+2. ✅ Entities, JPA, Flyway migrations
+3. ✅ REST controllers, DTOs, validation, error handling
+4. ✅ Spring Security + JWT
+5. ✅ Multi-tenancy + isolation tests
+6. ✅ Products + inventory module (plus purchasing, sales, invoicing, dashboard)
+7. ✅ Frontend (React, all modules)
+
+### 4b. Phase 2 feature list (agreed in session 3)
+
+The user wants to build all of these, as **modules sellable per plan**. **Rule: before each feature, ask the user
+questions about which parts they want** (e.g. they do NOT want barcode scanning).
+
+1. ✅ Plans / tiers / add-ons + platform admin panel
+2. ✅ Point of Sale: tiles + categories + search, cash change, printable receipt, shifts with cash count, manual
+   discounts (cashiers ≤ 10%), in Business + Pro. Not chosen: barcode scanner, split payment.
+3. ✅ Reports: sales by period (day/week/month), best sellers + profit & margins, stock value; CSV + print/PDF;
+   managers/admins only; in Business + Pro. Not chosen: by category, by cashier, aging, by supplier, charts.
+4. ✅ Returns: partial returns (pick items/quantities), refund by cash/card/store credit, restock-or-write-off per
+   item, credit notes (CN-…), store credit spendable on invoices and at the POS; all plans.
+5. ✅ Supplier bills: draft bill auto-created when a PO is received (Spring event) + manual bills (rent...), approve,
+   partial payments, supplier statement with running balance, "owed to suppliers" on the dashboard; separate from
+   the POS cash drawer; Business + Pro. Not chosen: due-date/overdue list, bill file attachments.
+6. ✅ Promotions: % off / amount off / buy X get Y / order % above an amount; scope all/category/product; dates;
+   coupon codes; price lists per customer group; best single promotion for the customer (never stacked); live
+   server-side price preview at the till and in the sales form; Business + Pro.
+7. ✅ Accounting (Algeria): SCF chart of accounts (admins can add accounts), automatic double-entry journal from every
+   sale/payment/return/receipt/bill/stock adjustment, trial balance, ledger, P&L, balance sheet, TVA report (19%/9%,
+   collected − deductible), TVA per supplier bill line + expense account on manual bills; manual journal entries for
+   ADMIN only; screens in Pro only (entries are posted on every plan).
+8. ✅ HR & payroll (Algeria): employee records (contract, NSS/NIN, salary, panier+transport, RIB), monthly payroll
+   runs DRAFT → APPROVED → PAID, per-payslip adjustments (base/bonus/allowances), CNAS 9%/26% + IRG 2022 scale,
+   printable bulletin de paie, live net-pay preview, accounting postings; admins/managers only; Pro only.
+   Not chosen: attendance/hours, leave/absences, employee self-service logins.
+9. Online payment for plans (Stripe) – later
 
 ---
 
@@ -70,6 +102,46 @@ The user is here to **LEARN**, not just to get code.
 | Security starter | **Not added yet**, comes in step 4 | Adding it locks all endpoints (401s) and gets in the way of learning steps 2–3 |
 | Compose file location | **`retail-erp/compose.yaml`** (repo root) | The DB is infrastructure for the whole project; other services (pgAdmin, etc.) can go there later. _Claude's recommendation, applied as the default; the user didn't object._ |
 | How Spring finds the DB | **Manual** (option A): user runs `docker compose up -d`; connection details in `application.properties` | For learning: see every piece. The alternative, `spring-boot-docker-compose` (Boot auto-starts compose and wires the connection), hides the magic; maybe later. _Also the default, not explicitly chosen._ |
+| Scope of the MVP | Full: auth, tenancy, products, warehouses, stock, suppliers + POs, customers + sales orders, invoices + payments, dashboard, React UI | Chosen by the user in session 2 |
+| Delivery | One branch (`claude/hello-4a7te4`), commits per roadmap step, one PR into `main` | Chosen by the user |
+| Tenant onboarding | **Self-service** `POST /api/auth/register` creates tenant + first ADMIN | Chosen by the user |
+| Roles | ADMIN (all), MANAGER (all but users), CASHIER (sell, payments, customers; read catalog/stock) | Simple RBAC fits a retail shop |
+| DB roles | Flyway runs as owner (`erp_owner`); app connects as `erp_app` (created by migration V1, no BYPASSRLS) | RLS doesn't apply to owners/superusers |
+| Tenant → DB | `TenantAwareDataSource` runs `set_config('app.tenant_id', ?, false)` on every borrowed connection | RLS policies read it; set on every borrow, so pooled connections never leak a tenant |
+| JWT | HS256 via Spring Security OAuth2 resource server + Nimbus (no jjwt); 8h TTL; key from `JWT_SECRET` (random if unset, dev only) | Standard Spring support, no extra library |
+| IDs | UUIDs generated by Hibernate | Safe to expose, no cross-tenant guessable sequences |
+| Stock concurrency | `pg_advisory_xact_lock` per (product, warehouse), sorted lock order | Prevents overselling without a mutable balance row |
+| Document numbers | Per-tenant counter table, `INSERT ... ON CONFLICT DO UPDATE RETURNING` | Readable, gap-free on rollback |
+| Invoices | Auto-issued when a sales order is confirmed; due in 30 days (`app.invoice.payment-terms-days`) | MVP simplicity |
+| Tests | Integration tests on real PostgreSQL: Testcontainers by default, or `TEST_DB_URL` | RLS/locks/triggers can't be tested on H2 |
+| API docs | springdoc-openapi 3.1.1, `/swagger-ui.html` with bearer auth | Try the API without the frontend |
+| Frontend stack | React 19 + TypeScript + Vite 8, React Router 7, TanStack Query 5, plain CSS | Minimal dependencies |
+| Token storage (frontend) | `localStorage` | Simple; trade-off vs HttpOnly cookie documented in LEARNING.md §9 |
+| Plan model | Plans (Starter/Business/Pro) + per-module add-ons; limits on users and warehouses (active ones only) | Chosen by the user (session 3) |
+| New signups | Starter + 14-day Pro trial (`app.subscription.trial-days`) | Chosen by the user |
+| Plan management | Platform admin panel (`/platform`), plans set by hand; Stripe later | Chosen by the user |
+| Plan contents | Starter: Inventory, Sales, Invoicing, 2 users, 1 warehouse · Business: + Purchasing, 10 users, 3 warehouses · Pro: all, unlimited | Claude's default; change via a Flyway migration |
+| Plan enforcement | `@RequiresModule` + MVC interceptor (403 `MODULE_NOT_IN_PLAN`), limits in services (409 `PLAN_LIMIT_REACHED`); app DB role can't modify subscriptions | Defense in depth, like tenancy |
+| Platform admin | Separate table + login, JWT role `PLATFORM_ADMIN` without tenant; first admin from `PLATFORM_ADMIN_EMAIL`/`PLATFORM_ADMIN_PASSWORD` | Platform staff aren't tenant users; no secrets in git |
+| POS | Checkout = sales order + confirm + payment in one transaction; one open shift per cashier; cash/card only at the till | Reuses sales/stock/invoicing instead of a parallel model |
+| Discounts | Order-level % on every line, tax on discounted amount; cashiers ≤ 10% (`app.pos.cashier-max-discount-percent`), managers unlimited | Claude's default for "manual discount"; user can change the limit |
+| Profit cost basis | `sales_order_lines.unit_cost` snapshot at sale time (pre-V9 lines backfilled with cost at migration) | Past profit must not change when cost prices change |
+| Stock valuation | Quantity × current cost price | Simple; FIFO/average costing would need cost layers |
+| Reports access | ADMIN + MANAGER only (profit is sensitive); CSV built in the browser | User didn't specify; Claude's default |
+| Returns model | Credit note per return; invoice amount_credited/amount_refunded; refund only what was paid; store credit as a ledger | Never edit sales/invoices; works for paid and unpaid invoices |
+| Who can do returns | All tenant roles (recorded with who did it) | Claude's default; cashiers handle returns at the counter |
+| Payables model | Bills DRAFT → OPEN (approved, owed) → PAID; append-only supplier payments; one bill per PO (DB unique) | Paper bill may differ from the PO, so drafts are checked first |
+| Module coupling | Purchasing → payables via a Spring `ApplicationEvent` (synchronous, same transaction) | No compile-time dependency from purchasing to payables |
+| Pricing | One `PricingService` for sales, POS and preview; best item promos vs best order promo (larger total wins); order promo spread over lines | Single source of truth; reuses line discounts so returns/reports work unchanged |
+| Promotions access | Everyone can read; ADMIN/MANAGER create/edit; promotions don't count against the cashier limit | Claude's default |
+| Accounting country | Algeria: SCF accounts (French names), TVA 19%/9%, `JournalService` rejects unbalanced entries | Chosen by the user |
+| Journal | Append-only (no UPDATE/DELETE for `erp_app`), deferred constraint trigger checks balance at commit; corrections = reversing entries | Same idea as stock movements; an auditor can trust it |
+| Automatic postings | `@EventListener`s in `AccountingPostings` on events from each module, same transaction; posted on every plan, screens in Pro | No gaps when a shop upgrades; modules don't import accounting |
+| Goods received before the bill | Dr 300 stock / Cr 408; bill approval moves 408 → 401; bill vs PO difference goes to stock | Standard SCF treatment |
+| Payroll rules | `PayrollRules` pure class: CNAS 9%/26% on base + bonus; IRG 2022 scale on (CNAS base − CNAS + allowances) floored to 10 DA, 40% allowance (1 000–1 500), exempt ≤ 30 000, smoothing 30–35 000 | Chosen by the user (Algerian rules); one place to change rates |
+| Payroll model | One run per month (DB unique); payslips snapshot employee + figures; approve posts Dr 631/635 Cr 431/442/421, pay posts Dr 421 Cr 530/512 | Past payslips never change; same event pattern as accounting |
+| HR access | ADMIN + MANAGER only, employees have no logins | Chosen by the user |
+| Product categories | Free-text `products.category` (suggested from existing values) | Enough for POS tiles; a category table can come later |
 | PostgreSQL version | **`postgres:17`** (pinned major) | Never `latest`. 18's image changed the data directory layout (`PGDATA` under `/var/lib/postgresql/18/...`), and most tutorials use the 17 layout (`/var/lib/postgresql/data`). |
 
 ---
@@ -80,21 +152,44 @@ The user is here to **LEARN**, not just to get code.
 retail-erp/                      ← git root
 ├── CONTEXT.md                   ← this file
 ├── CLAUDE.md                    ← just "@CONTEXT.md": makes Claude Code auto-load this file every session
-└── backend/                     ← Spring Boot app (Maven)
-    ├── pom.xml
-    ├── mvnw, mvnw.cmd, .mvn/    ← Maven Wrapper (Maven 3.9.16)
-    ├── .gitattributes           ← mvnw forced to LF, *.cmd to CRLF
-    ├── .gitignore               ← ignores target/, .vscode/, .idea/, HELP.md, ...
-    └── src/
-        ├── main/java/com/retailerp/ErpBackendApplication.java
-        ├── main/resources/application.properties   (only spring.application.name=erp-backend)
-        └── test/java/com/retailerp/ErpBackendApplicationTests.java  (contextLoads)
+├── LEARNING.md                  ← guided tour of how everything works (read this!)
+├── README.md                    ← how to run and test
+├── compose.yaml                 ← PostgreSQL 17 for local dev
+├── .env.example                 ← copy to .env (git-ignored) to override defaults
+├── .github/workflows/ci.yml     ← backend tests (Testcontainers) + frontend build
+├── backend/                     ← Spring Boot app (Maven)
+│   └── src/main/java/com/retailerp/
+│       ├── common/      base entities, errors (ProblemDetail), paging, Money, OpenAPI config
+│       ├── tenancy/     TenantContext, Hibernate resolver, TenantAwareDataSource
+│       ├── security/    SecurityConfig, JWT, auth API, Access (role rules)
+│       ├── tenant/ user/            tenants, users API
+│       ├── catalog/     products, warehouses
+│       ├── inventory/   stock movements, levels, adjustments, transfers
+│       ├── purchasing/  suppliers, purchase orders
+│       ├── sales/       customers, sales orders
+│       ├── invoicing/   invoices, payments
+│       ├── numbering/   document numbers
+│       ├── subscription/ modules, plans, entitlements, @RequiresModule
+│       ├── platform/    platform admin login, tenant list, plan assignment
+│       ├── pos/         Point of Sale: shifts, checkout, receipts
+│       ├── reports/     sales, products/profit, stock value (plain SQL)
+│       ├── returns/     returns / credit notes (store credit lives in sales/)
+│       ├── payables/    supplier bills, supplier payments, statements
+│       ├── pricing/     price lists, promotions, coupons, PricingService
+│       ├── accounting/  chart of accounts, journal, automatic postings, statements, TVA
+│       ├── hr/          employees, payroll runs, payslips, PayrollRules (CNAS, IRG)
+│       └── dashboard/
+│   └── src/main/resources/db/migration/   V1..V14 Flyway migrations
+│   └── src/test/java/com/retailerp/       IntegrationTest base + auth, isolation, flow tests
+└── frontend/                    ← React app (Vite)
+    └── src/ api/ auth/ components/ pages/
 ```
 
 - **Maven coordinates:** `com.retailerp:erp-backend:0.0.1-SNAPSHOT`
 - **Base package:** `com.retailerp`. **All code must live under it**, or component scanning won't find it.
-- **Current dependencies:** `spring-boot-starter-webmvc`, `spring-boot-starter-validation`, `spring-boot-starter-actuator` (+ their `-test` starters).
-- **Not yet added:** Spring Data JPA, PostgreSQL driver, Flyway, Spring Security, JWT library.
+- **Dependencies:** webmvc, validation, actuator, data-jpa, flyway (+ flyway-database-postgresql), postgresql,
+  security-oauth2-resource-server, springdoc-openapi-starter-webmvc-ui; tests: webmvc-test, data-jpa-test,
+  security-oauth2-resource-server-test, spring-boot-testcontainers, testcontainers-postgresql.
 
 ---
 
@@ -104,6 +199,11 @@ retail-erp/                      ← git root
 - Built on **Spring Framework 7**, **Jakarta EE 11** (Tomcat 11: the app ran on Apache Tomcat 11.0.24), **Hibernate 7**, **Jackson 3** (some package names changed).
 - Version numbers have **no `.RELEASE` suffix** (it's `4.1.1`, not `4.1.1.RELEASE`).
 - Actuator responses use the content type `application/vnd.spring-boot.actuator.v3+json`.
+- Modules moved packages, e.g. `org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer`,
+  `org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc`. Flyway needs `spring-boot-starter-flyway`
+  (not just `flyway-core`). Security starters are named `spring-boot-starter-security-oauth2-resource-server`, etc.
+- Jackson 3: inject `tools.jackson.databind.json.JsonMapper` (not `com.fasterxml...ObjectMapper`).
+- Testcontainers 2: artifact `testcontainers-postgresql`, class `org.testcontainers.postgresql.PostgreSQLContainer`.
 
 ---
 
@@ -149,6 +249,14 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
 4. **Line endings:** Git on Windows warns "LF will be replaced by CRLF". Harmless. `mvnw` must stay **LF** (guaranteed by `.gitattributes`), or it breaks on Linux/CI. `mvnw` is also marked executable in git (`git update-index --chmod=+x`).
 5. **GitHub repo creation:** create it **empty** (no README/.gitignore/license), or the first push is rejected because the histories are unrelated. Never "fix" that with `--force`.
 6. **Pushing from Claude's shell:** the first push from Claude's (non-interactive) shell failed with "Invalid username or token": Git Credential Manager needs a browser login, which only the user can do. The user did the first push themselves. If a push from Claude fails with an auth error, ask the user to run `git push`. If there's still no login window, remove the stale credential: `git credential-manager github logout yacingstar` (or remove `git:https://github.com` in Windows Credential Manager).
+7. **Claude cloud sessions (session 2):** the container has no Docker daemon, so Testcontainers can't run there.
+   Tests were run against a local PostgreSQL 16 server with `TEST_DB_URL=...`. The Maven wrapper's download was
+   rate-limited (HTTP 429 from Maven Central) once, so the preinstalled `mvn` was used there; on the user's machine
+   and in CI, keep using `./mvnw`.
+8. **RLS needs a non-owner role.** If the app ever connects as `erp_owner`/a superuser, all RLS policies are
+   silently bypassed. `TenantIsolationTest.rowLevelSecurityFiltersRawSql` catches that.
+9. **Hikari auto-commit must stay on (default).** `TenantAwareDataSource` sets `app.tenant_id` right after borrowing;
+   with auto-commit off, the setting would be rolled back with the first transaction rollback.
 
 ---
 
@@ -159,6 +267,10 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
 - Stock changes only through **stock movements**; no `UPDATE stock SET quantity = ...`.
 - Every tenant-owned table has `tenant_id`; isolation is enforced by Hibernate `@TenantId` **and** Postgres RLS.
 - Database schema changes only through **Flyway migrations** (never `ddl-auto=update` in real use).
+- Every new tenant-owned table: `tenant_id uuid NOT NULL`, `UNIQUE (tenant_id, id)` if referenced, composite FKs
+  `(tenant_id, x_id)`, `SELECT enable_tenant_rls('table')` in the migration, entity extends `TenantScopedEntity`.
+- Stock-changing code goes through `StockService` (lock → check → movement) inside the caller's transaction.
+- Controllers return DTO records, never entities. Domain errors throw `BusinessRuleException` (409) / `NotFoundException` (404).
 - Commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` when Claude authored the commit.
 
 ---
@@ -175,16 +287,47 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
 - Created this `CONTEXT.md` + `CLAUDE.md` (auto-load), committed. The push from Claude's shell failed (auth); **the user pushed** successfully (`origin/main` = `1788e9f`).
 - Started step 2.1: explained why PostgreSQL runs in Docker Compose; applied the defaults (compose at the root, manual connection, `postgres:17`). The user started Docker Desktop; found that Docker data lives on D:. Gave the user the `compose.yaml` task (see §12).
 
+### 2026-10-13: Session 2 (Claude Code on the web, cloud container)
+- The user asked Claude to build the entire project; chose "build all, explain after", full MVP, one branch + one PR,
+  self-service signup.
+- Built and committed per roadmap step: compose + Flyway schema with RLS; JWT security + tenancy plumbing;
+  business modules (catalog, inventory, purchasing, sales, invoicing, dashboard); React frontend; CI + docs.
+- Verified: 19 backend integration tests green (incl. raw-SQL RLS checks and a concurrent overselling test),
+  frontend `npm run build` clean, app smoke-tested (health, Swagger, register), and a browser end-to-end run
+  (register → warehouse → product → stock → oversell blocked → sale → invoice → payment) with no console errors.
+
+### 2026-10-13: Session 3
+- User asked what the app is and whether it's good; explained (solid foundation, not production-ready).
+- User wants every ERP feature, sold as modules in plans/tiers; agreed list in §4b; rule: ask before each feature.
+- Built feature 1 (plans): user chose plans + add-ons, user/warehouse limits, Pro trial for signups, platform admin
+  panel. 7 new tests (26 total green); browser-checked trial → downgrade → module hidden → limit reached.
+- Built feature 2 (Point of Sale) with the user's choices (see §4b). 6 new tests (32 total); browser-checked
+  open shift → tiles → discount → cash change → receipt → close shift with cash difference.
+
+### 2026-10-15: Session 3 (continued after a container restart)
+- Built feature 3 (Reports) with the user's choices (see §4b). 4 new tests (36 total); browser-checked all three
+  tabs, CSV download (accents OK in Excel via BOM) and the print layout.
+- Built feature 4 (Returns) with the user's choices (see §4b). 7 new tests (43 total); browser-checked a partial
+  return (one item written off, one restocked) refunded as store credit, credit note page, customer balance.
+- Built feature 5 (Supplier bills) with the user's choices (see §4b). 4 new tests (47 total); browser-checked a draft
+  bill from a received PO → approve → partial payment → supplier statement → dashboard "owed to suppliers".
+- Built feature 6 (Promotions) with the user's choices (see §4b). 8 new tests (55 total); browser-checked creating a
+  promotion, the till showing per-line promotions, an invalid coupon refused, and the receipt listing promotions.
+- Built feature 7 (Accounting) with the user's choices (Algeria; automatic entries, P&L, balance sheet, TVA report;
+  manual entries admins only; Pro only). 5 new tests (60 total); browser-checked journal, a bill with TVA 19% on
+  account 613, a manual capital entry (unbalanced refused), trial balance, P&L, balance sheet (balanced) and TVA.
+
+### 2026-10-18: Session 3 (continued after a container restart)
+- Built feature 8 (HR & payroll) with the user's choices (employee records + payroll; Algerian rules; managers
+  only; Pro only). 8 new tests (68 total: a plain unit test for the CNAS/IRG maths + integration tests);
+  browser-checked the employee form's live net pay, a draft run with a bonus, approve → pay, the printed payslip and
+  the payroll entries in the journal.
+
 ---
 
-## 12. Current task spec: `retail-erp/compose.yaml` (written by the user, reviewed by Claude)
+## 12. Current task
 
-Requirements given to the user:
-1. One service `postgres`.
-2. Pinned image `postgres:17`.
-3. `POSTGRES_DB` (e.g. `retail_erp`), `POSTGRES_USER`, `POSTGRES_PASSWORD`.
-4. Port mapping `"5432:5432"` (host:container), **quoted**.
-5. **Named volume** at `/var/lib/postgresql/data` (declared under the top-level `volumes:`), **not** a `./folder` bind mount.
-6. Bonus: `healthcheck` with `pg_isready -U <user> -d <db>`.
-
-Pitfalls the user was warned about (check for these in the review): tabs/bad indentation; an unquoted port mapping (YAML 1.1 base-60 trap); a bind mount instead of a named volume; `POSTGRES_*` vars only apply on the **first** start (empty volume), so changing the password later needs `docker compose down -v`; the obsolete `version:` key; never commit real secrets (a dev-only password is OK here; proper env-var handling comes with JWT).
+All agreed features are built except Stripe (§4b item 9, "later"): ask the user if they want it now.
+Meanwhile: review and merge PR #1, run it locally (README), study `LEARNING.md` (incl. §8h accounting, §8i payroll).
+The original compose task (session 1) was completed by Claude in session 2: `compose.yaml` meets the spec
+(postgres:17, quoted port, named volume, healthcheck, no `version:` key, dev-only defaults).
