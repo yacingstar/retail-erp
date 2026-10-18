@@ -111,6 +111,9 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #c7d8fb; border-c
 .auth-card h1 { margin-bottom: 4px; }
 
 .invoice-head { display: flex; justify-content: space-between; margin-bottom: 16px; }
+.nowrap { white-space: nowrap; }
+.payslip-head { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.payslip-head .right { text-align: right; display: flex; flex-direction: column; gap: 2px; }
 .invoice-head .right { text-align: right; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 .bill-to { margin-bottom: 16px; }
 .bill-to small { color: var(--muted); }

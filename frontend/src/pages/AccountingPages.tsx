@@ -37,6 +37,8 @@ const SOURCES: Record<string, { name: string; path?: string }> = {
   SUPPLIER_BILL_VOID: { name: 'Bill voided', path: '/bills' },
   SUPPLIER_PAYMENT: { name: 'Supplier payment' },
   STOCK_ADJUSTMENT: { name: 'Stock adjustment' },
+  PAYROLL: { name: 'Payroll', path: '/payroll' },
+  PAYROLL_PAYMENT: { name: 'Salaries paid', path: '/payroll' },
   MANUAL: { name: 'Manual entry' },
 }
 

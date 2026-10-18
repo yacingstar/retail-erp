@@ -12,6 +12,7 @@ import { ReportsPage } from './pages/ReportsPage'
 import { NewReturnPage, ReturnDetailPage, ReturnsPage } from './pages/ReturnPages'
 import { BillDetailPage, BillFormPage, BillsPage, SupplierStatementPage } from './pages/BillPages'
 import { PriceListEditPage, PriceListsPage, PromotionsPage } from './pages/PromotionPages'
+import { EmployeeFormPage, EmployeesPage, PayrollRunPage, PayrollRunsPage, PayslipPage } from './pages/HrPages'
 import { AccountingPage, JournalEntryPage, LedgerPage, ManualEntryPage } from './pages/AccountingPages'
 import { PlatformLoginPage, PlatformTenantsPage } from './pages/PlatformPages'
 import { useSubscription } from './auth/useSubscription'
@@ -80,6 +81,12 @@ export function App() {
         <Route path="accounting/journal/new" element={<RequireAuth roles={['ADMIN']}><RequireModule module="ACCOUNTING" name="Accounting"><ManualEntryPage /></RequireModule></RequireAuth>} />
         <Route path="accounting/journal/:id" element={<RequireAuth roles={MANAGE}><RequireModule module="ACCOUNTING" name="Accounting"><JournalEntryPage /></RequireModule></RequireAuth>} />
         <Route path="accounting/ledger/:code" element={<RequireAuth roles={MANAGE}><RequireModule module="ACCOUNTING" name="Accounting"><LedgerPage /></RequireModule></RequireAuth>} />
+        <Route path="employees" element={<RequireAuth roles={MANAGE}><RequireModule module="HR_PAYROLL" name="HR & payroll"><EmployeesPage /></RequireModule></RequireAuth>} />
+        <Route path="employees/new" element={<RequireAuth roles={MANAGE}><RequireModule module="HR_PAYROLL" name="HR & payroll"><EmployeeFormPage /></RequireModule></RequireAuth>} />
+        <Route path="employees/:id" element={<RequireAuth roles={MANAGE}><RequireModule module="HR_PAYROLL" name="HR & payroll"><EmployeeFormPage /></RequireModule></RequireAuth>} />
+        <Route path="payroll" element={<RequireAuth roles={MANAGE}><RequireModule module="HR_PAYROLL" name="HR & payroll"><PayrollRunsPage /></RequireModule></RequireAuth>} />
+        <Route path="payroll/:id" element={<RequireAuth roles={MANAGE}><RequireModule module="HR_PAYROLL" name="HR & payroll"><PayrollRunPage /></RequireModule></RequireAuth>} />
+        <Route path="payroll/:id/payslips/:payslipId" element={<RequireAuth roles={MANAGE}><RequireModule module="HR_PAYROLL" name="HR & payroll"><PayslipPage /></RequireModule></RequireAuth>} />
         <Route path="returns" element={<RequireModule module="RETURNS" name="Returns"><ReturnsPage /></RequireModule>} />
         <Route path="returns/new" element={<RequireModule module="RETURNS" name="Returns"><NewReturnPage /></RequireModule>} />
         <Route path="returns/:id" element={<RequireModule module="RETURNS" name="Returns"><ReturnDetailPage /></RequireModule>} />

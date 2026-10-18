@@ -3,7 +3,7 @@
 > **Source of truth for this project.** Read this first at the start of every session (human or AI).
 > Keep it up to date: when a decision is made, a step is finished, or a new gotcha appears, update the relevant section.
 
-_Last updated: 2026-10-15_
+_Last updated: 2026-10-18_
 
 ---
 
@@ -11,10 +11,10 @@ _Last updated: 2026-10-15_
 
 | | |
 |---|---|
-| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–7 of §4b done (plans, POS, Reports, Returns, Supplier bills, Promotions, Accounting) |
-| **Last thing done** | Accounting for Algeria (SCF chart, automatic journal entries, P&L, balance sheet, TVA report, manual entries; 60 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
+| **Current phase** | **Phase 2: growing into a modular SaaS ERP.** MVP done; features 1–8 of §4b done (plans, POS, Reports, Returns, Supplier bills, Promotions, Accounting, HR & payroll) |
+| **Last thing done** | HR & payroll for Algeria (employees, monthly runs, CNAS/IRG payslips, printable bulletin de paie, posted to accounting; 68 tests green), pushed to `claude/hello-4a7te4` (same PR as the MVP, not merged yet). |
 | **Pending / open** | User reviews/merges PR [yacingstar/retail-erp#1](https://github.com/yacingstar/retail-erp/pull/1). |
-| **Next step** | Feature 8 (HR / payroll) from §4b. **Before each feature, ask the user which sub-features they want** (their rule). |
+| **Next step** | Only feature 9 (Stripe, marked "later") is left in §4b: ask the user whether to do it now, and its sub-features. **Before each feature, ask the user which sub-features they want** (their rule). |
 
 ---
 
@@ -81,7 +81,10 @@ questions about which parts they want** (e.g. they do NOT want barcode scanning)
    sale/payment/return/receipt/bill/stock adjustment, trial balance, ledger, P&L, balance sheet, TVA report (19%/9%,
    collected − deductible), TVA per supplier bill line + expense account on manual bills; manual journal entries for
    ADMIN only; screens in Pro only (entries are posted on every plan).
-8. HR / payroll
+8. ✅ HR & payroll (Algeria): employee records (contract, NSS/NIN, salary, panier+transport, RIB), monthly payroll
+   runs DRAFT → APPROVED → PAID, per-payslip adjustments (base/bonus/allowances), CNAS 9%/26% + IRG 2022 scale,
+   printable bulletin de paie, live net-pay preview, accounting postings; admins/managers only; Pro only.
+   Not chosen: attendance/hours, leave/absences, employee self-service logins.
 9. Online payment for plans (Stripe) – later
 
 ---
@@ -135,6 +138,9 @@ questions about which parts they want** (e.g. they do NOT want barcode scanning)
 | Journal | Append-only (no UPDATE/DELETE for `erp_app`), deferred constraint trigger checks balance at commit; corrections = reversing entries | Same idea as stock movements; an auditor can trust it |
 | Automatic postings | `@EventListener`s in `AccountingPostings` on events from each module, same transaction; posted on every plan, screens in Pro | No gaps when a shop upgrades; modules don't import accounting |
 | Goods received before the bill | Dr 300 stock / Cr 408; bill approval moves 408 → 401; bill vs PO difference goes to stock | Standard SCF treatment |
+| Payroll rules | `PayrollRules` pure class: CNAS 9%/26% on base + bonus; IRG 2022 scale on (CNAS base − CNAS + allowances) floored to 10 DA, 40% allowance (1 000–1 500), exempt ≤ 30 000, smoothing 30–35 000 | Chosen by the user (Algerian rules); one place to change rates |
+| Payroll model | One run per month (DB unique); payslips snapshot employee + figures; approve posts Dr 631/635 Cr 431/442/421, pay posts Dr 421 Cr 530/512 | Past payslips never change; same event pattern as accounting |
+| HR access | ADMIN + MANAGER only, employees have no logins | Chosen by the user |
 | Product categories | Free-text `products.category` (suggested from existing values) | Enough for POS tiles; a category table can come later |
 | PostgreSQL version | **`postgres:17`** (pinned major) | Never `latest`. 18's image changed the data directory layout (`PGDATA` under `/var/lib/postgresql/18/...`), and most tutorials use the 17 layout (`/var/lib/postgresql/data`). |
 
@@ -171,8 +177,9 @@ retail-erp/                      ← git root
 │       ├── payables/    supplier bills, supplier payments, statements
 │       ├── pricing/     price lists, promotions, coupons, PricingService
 │       ├── accounting/  chart of accounts, journal, automatic postings, statements, TVA
+│       ├── hr/          employees, payroll runs, payslips, PayrollRules (CNAS, IRG)
 │       └── dashboard/
-│   └── src/main/resources/db/migration/   V1..V13 Flyway migrations
+│   └── src/main/resources/db/migration/   V1..V14 Flyway migrations
 │   └── src/test/java/com/retailerp/       IntegrationTest base + auth, isolation, flow tests
 └── frontend/                    ← React app (Vite)
     └── src/ api/ auth/ components/ pages/
@@ -310,11 +317,17 @@ Health check: `http://localhost:8080/actuator/health` → `{"status":"UP"}`
   manual entries admins only; Pro only). 5 new tests (60 total); browser-checked journal, a bill with TVA 19% on
   account 613, a manual capital entry (unbalanced refused), trial balance, P&L, balance sheet (balanced) and TVA.
 
+### 2026-10-18: Session 3 (continued after a container restart)
+- Built feature 8 (HR & payroll) with the user's choices (employee records + payroll; Algerian rules; managers
+  only; Pro only). 8 new tests (68 total: a plain unit test for the CNAS/IRG maths + integration tests);
+  browser-checked the employee form's live net pay, a draft run with a bonus, approve → pay, the printed payslip and
+  the payroll entries in the journal.
+
 ---
 
 ## 12. Current task
 
-Next feature from §4b (HR / payroll): ask the user about its sub-features first (Algerian payroll rules: CNAS, IRG).
-Meanwhile: review and merge PR #1, run it locally (README), study `LEARNING.md` (incl. new §8h on accounting).
+All agreed features are built except Stripe (§4b item 9, "later"): ask the user if they want it now.
+Meanwhile: review and merge PR #1, run it locally (README), study `LEARNING.md` (incl. §8h accounting, §8i payroll).
 The original compose task (session 1) was completed by Claude in session 2: `compose.yaml` meets the spec
 (postgres:17, quoted port, named volume, healthcheck, no `version:` key, dev-only defaults).

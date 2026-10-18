@@ -515,6 +515,47 @@ pages [`AccountingPages.tsx`](frontend/src/pages/AccountingPages.tsx). Pro plan 
 
 ---
 
+## 8i. HR and payroll (Algeria: CNAS, IRG)
+
+Package [`hr`](backend/src/main/java/com/retailerp/hr), migration `V14__hr_payroll.sql`,
+pages [`HrPages.tsx`](frontend/src/pages/HrPages.tsx). Pro plan only, admins and managers only (salaries are
+sensitive; employees don't log in).
+
+- **The arithmetic lives in one pure class:**
+  [`PayrollRules`](backend/src/main/java/com/retailerp/hr/PayrollRules.java) takes base salary, bonus and allowances
+  and returns every figure of the payslip. No database, no Spring, so
+  [`PayrollRulesTest`](backend/src/test/java/com/retailerp/hr/PayrollRulesTest.java) is a plain JUnit test that runs
+  in milliseconds. When a Finance Law changes the rates, that class is the only place to edit.
+- **How a payslip is computed** (example: base 60 000 DA):
+
+  | Step | Rule | Example |
+  |---|---|---|
+  | CNAS base | base + bonuses (panier/transport excluded) | 60 000 |
+  | Employee CNAS | 9% of the CNAS base | 5 400 |
+  | Taxable income | CNAS base − CNAS + allowances, rounded down to 10 DA | 54 600 |
+  | IRG | scale 0/23/27/30/33/35%, minus 40% (min 1 000, max 1 500); ≤ 30 000 exempt; 30–35 000 smoothed | 7 042 |
+  | Net pay | gross − CNAS − IRG | 47 558 |
+  | Employer CNAS | 26% of the CNAS base, paid on top | 15 600 |
+
+  The employee form shows this live (`GET /api/payroll/preview`): the server does the maths, so the preview can
+  never disagree with the real payslip.
+- **Payroll runs:** one per month (unique `(tenant, year, month)` in the database). Creating a run makes a DRAFT
+  payslip for every active employee working that month (hired by its last day, not gone before its first). In the
+  draft you adjust each payslip (a partial month = a lower base, a bonus, other allowances), or remove one. Then
+  **approve** (locked) and **pay** (cash or bank transfer).
+- **Snapshots:** a payslip copies the employee's name, job, NSS and figures. Raising someone's salary later doesn't
+  rewrite last month's payslip (same idea as `unit_cost` on sale lines, §8d). A `CHECK (net_pay = gross − cnas − irg)`
+  in the table guards the arithmetic.
+- **Accounting (same event pattern as §8h):** approving publishes `PayrollApproved`:
+  Dr 631 salaries (gross) + Dr 635 employer CNAS / Cr 431 CNAS (both shares) + Cr 442 IRG withheld + Cr 421 net owed.
+  Paying publishes `PayrollPaid`: Dr 421 / Cr 530 or 512. The CNAS and IRG you withheld are owed to the CNAS and the
+  tax office until you pay them: record that as a manual journal entry (Dr 431 or 442 / Cr 512).
+- **Not handled:** attendance and leave (not chosen), the special IRG rules for disabled and retired workers, other
+  contributions (mutuelle, CACOBATPH…), the annual DAS declaration. Check the figures with your accountant before
+  relying on them.
+
+---
+
 ## 9. Frontend
 
 - **Vite** serves the React app in dev with instant reload and builds static files for production. Its proxy

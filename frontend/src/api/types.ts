@@ -241,7 +241,7 @@ export interface Dashboard {
   recentSales: SalesOrderSummary[]
 }
 
-export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS' | 'SUPPLIER_BILLS' | 'PROMOTIONS' | 'ACCOUNTING'
+export type Module = 'INVENTORY' | 'SALES' | 'INVOICING' | 'PURCHASING' | 'POINT_OF_SALE' | 'REPORTS' | 'RETURNS' | 'SUPPLIER_BILLS' | 'PROMOTIONS' | 'ACCOUNTING' | 'HR_PAYROLL'
 
 export interface PlanInfo {
   code: string
@@ -594,4 +594,97 @@ export interface VatReport {
   purchases: VatRow[]
   deductible: number
   payable: number
+}
+
+export type ContractType = 'CDI' | 'CDD' | 'OTHER'
+export type PayrollStatus = 'DRAFT' | 'APPROVED' | 'PAID'
+export type SalaryPaymentMethod = 'CASH' | 'BANK_TRANSFER'
+
+export interface Employee {
+  id: string
+  fullName: string
+  jobTitle: string | null
+  contractType: ContractType
+  hireDate: string
+  endDate: string | null
+  nin: string | null
+  nss: string | null
+  baseSalary: number
+  monthlyAllowance: number
+  phone: string | null
+  bankAccount: string | null
+  notes: string | null
+  active: boolean
+  createdAt: string
+}
+
+export interface PayPreview {
+  gross: number
+  cnasEmployee: number
+  taxableIncome: number
+  irg: number
+  netPay: number
+  cnasEmployer: number
+  employerCost: number
+}
+
+export interface Payslip {
+  id: string
+  employeeId: string
+  employeeName: string
+  jobTitle: string | null
+  nss: string | null
+  baseSalary: number
+  bonus: number
+  allowance: number
+  gross: number
+  cnasBase: number
+  cnasEmployee: number
+  taxableIncome: number
+  irg: number
+  netPay: number
+  cnasEmployer: number
+}
+
+export interface PayrollRunSummary {
+  id: string
+  number: string
+  year: number
+  month: number
+  status: PayrollStatus
+  employees: number
+  totalGross: number
+  totalNet: number
+  totalCnasEmployer: number
+  approvedAt: string | null
+  paidAt: string | null
+}
+
+export interface PayrollRun {
+  id: string
+  number: string
+  year: number
+  month: number
+  periodEnd: string
+  status: PayrollStatus
+  paymentMethod: SalaryPaymentMethod | null
+  totalGross: number
+  totalCnasEmployee: number
+  totalIrg: number
+  totalNet: number
+  totalCnasEmployer: number
+  employerCost: number
+  approvedAt: string | null
+  paidAt: string | null
+  payslips: Payslip[]
+}
+
+export interface EmployeePayslip {
+  runId: string
+  runNumber: string
+  year: number
+  month: number
+  status: PayrollStatus
+  gross: number
+  netPay: number
 }
