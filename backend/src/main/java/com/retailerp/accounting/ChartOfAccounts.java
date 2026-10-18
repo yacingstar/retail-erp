@@ -16,12 +16,17 @@ public final class ChartOfAccounts {
     public static final String SUPPLIERS_UNBILLED = "408";
     public static final String CUSTOMERS = "411";
     public static final String CUSTOMER_ADVANCES = "4191";
+    public static final String STAFF_PAYABLE = "421";
+    public static final String SOCIAL_BODIES = "431";
+    public static final String TAX_WITHHELD = "442";
     public static final String VAT_DEDUCTIBLE = "4456";
     public static final String VAT_COLLECTED = "4457";
     public static final String BANK = "512";
     public static final String CASH = "530";
     public static final String COST_OF_GOODS_SOLD = "600";
     public static final String DEFAULT_EXPENSE = "607";
+    public static final String SALARIES = "631";
+    public static final String SOCIAL_CHARGES = "635";
     public static final String OTHER_EXPENSES = "658";
     public static final String SALES = "700";
     public static final String OTHER_INCOME = "758";
@@ -41,6 +46,8 @@ public final class ChartOfAccounts {
             new Seed("411", "Clients", AccountType.ASSET),
             new Seed("4191", "Clients - avances et acomptes reçus", AccountType.LIABILITY),
             new Seed("421", "Personnel - rémunérations dues", AccountType.LIABILITY),
+            new Seed("431", "Organismes sociaux (CNAS)", AccountType.LIABILITY),
+            new Seed("442", "État, impôts et taxes recouvrables sur des tiers (IRG)", AccountType.LIABILITY),
             new Seed("4456", "TVA déductible", AccountType.ASSET),
             new Seed("4457", "TVA collectée", AccountType.LIABILITY),
             new Seed("512", "Banques - comptes courants", AccountType.ASSET),
@@ -55,6 +62,7 @@ public final class ChartOfAccounts {
             new Seed("626", "Frais postaux et de télécommunications", AccountType.EXPENSE),
             new Seed("627", "Services bancaires et assimilés", AccountType.EXPENSE),
             new Seed("631", "Rémunérations du personnel", AccountType.EXPENSE),
+            new Seed("635", "Cotisations aux organismes sociaux", AccountType.EXPENSE),
             new Seed("641", "Impôts, taxes et versements assimilés sur rémunérations", AccountType.EXPENSE),
             new Seed("658", "Autres charges opérationnelles", AccountType.EXPENSE),
             new Seed("700", "Ventes de marchandises", AccountType.INCOME),

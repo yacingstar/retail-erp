@@ -14,7 +14,8 @@ public enum Module {
     RETURNS("Returns"),
     SUPPLIER_BILLS("Supplier bills"),
     PROMOTIONS("Promotions"),
-    ACCOUNTING("Accounting");
+    ACCOUNTING("Accounting"),
+    HR_PAYROLL("HR & payroll");
 
     private final String displayName;
 

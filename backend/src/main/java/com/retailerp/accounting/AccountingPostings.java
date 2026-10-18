@@ -7,10 +7,15 @@ import static com.retailerp.accounting.ChartOfAccounts.CUSTOMERS;
 import static com.retailerp.accounting.ChartOfAccounts.CUSTOMER_ADVANCES;
 import static com.retailerp.accounting.ChartOfAccounts.OTHER_EXPENSES;
 import static com.retailerp.accounting.ChartOfAccounts.OTHER_INCOME;
+import static com.retailerp.accounting.ChartOfAccounts.SALARIES;
 import static com.retailerp.accounting.ChartOfAccounts.SALES;
+import static com.retailerp.accounting.ChartOfAccounts.SOCIAL_BODIES;
+import static com.retailerp.accounting.ChartOfAccounts.SOCIAL_CHARGES;
+import static com.retailerp.accounting.ChartOfAccounts.STAFF_PAYABLE;
 import static com.retailerp.accounting.ChartOfAccounts.STOCK;
 import static com.retailerp.accounting.ChartOfAccounts.SUPPLIERS;
 import static com.retailerp.accounting.ChartOfAccounts.SUPPLIERS_UNBILLED;
+import static com.retailerp.accounting.ChartOfAccounts.TAX_WITHHELD;
 import static com.retailerp.accounting.ChartOfAccounts.VAT_COLLECTED;
 import static com.retailerp.accounting.ChartOfAccounts.VAT_DEDUCTIBLE;
 import static com.retailerp.accounting.JournalService.credit;
@@ -25,6 +30,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import com.retailerp.common.BusinessRuleException;
+import com.retailerp.hr.PayrollApproved;
+import com.retailerp.hr.PayrollPaid;
+import com.retailerp.hr.PayrollRun;
+import com.retailerp.hr.PayrollRunRepository;
+import com.retailerp.hr.SalaryPaymentMethod;
 import com.retailerp.inventory.StockAdjusted;
 import com.retailerp.inventory.StockMovement;
 import com.retailerp.inventory.StockMovementRepository;
@@ -72,11 +82,12 @@ public class AccountingPostings {
     private final SupplierBillRepository bills;
     private final SupplierPaymentRepository supplierPayments;
     private final StockMovementRepository movements;
+    private final PayrollRunRepository payrollRuns;
     private final JdbcTemplate jdbc;
 
     public AccountingPostings(JournalService journal, SalesOrderRepository salesOrders, PaymentRepository payments,
             SalesReturnRepository returns, PurchaseOrderRepository purchaseOrders, SupplierBillRepository bills,
-            SupplierPaymentRepository supplierPayments, StockMovementRepository movements, JdbcTemplate jdbc) {
+            SupplierPaymentRepository supplierPayments, StockMovementRepository movements, PayrollRunRepository payrollRuns, JdbcTemplate jdbc) {
         this.journal = journal;
         this.salesOrders = salesOrders;
         this.payments = payments;
@@ -85,6 +96,7 @@ public class AccountingPostings {
         this.bills = bills;
         this.supplierPayments = supplierPayments;
         this.movements = movements;
+        this.payrollRuns = payrollRuns;
         this.jdbc = jdbc;
     }
 
@@ -227,6 +239,31 @@ public class AccountingPostings {
         } else {
             journal.post(LocalDate.now(), what, "STOCK_ADJUSTMENT", m.getId(), List.of(debit(OTHER_EXPENSES, value), credit(STOCK, value)));
         }
+    }
+
+    /**
+     * Payroll approved (salaries owed): Dr 631 salaries (gross) and Dr 635 employer CNAS / Cr 431 CNAS (employee +
+     * employer shares), Cr 442 IRG withheld for the State, Cr 421 net salaries owed to the staff.
+     */
+    @EventListener
+    public void onPayrollApproved(PayrollApproved event) {
+        PayrollRun r = payrollRuns.findById(event.runId()).orElseThrow();
+        journal.post(LocalDate.now(), "Payroll " + r.getPeriod() + " (" + r.getNumber() + ")", "PAYROLL", r.getId(), List.of(
+                debit(SALARIES, r.getTotalGross()),
+                debit(SOCIAL_CHARGES, r.getTotalCnasEmployer()),
+                credit(SOCIAL_BODIES, r.getTotalCnasEmployee().add(r.getTotalCnasEmployer())),
+                credit(TAX_WITHHELD, r.getTotalIrg()),
+                credit(STAFF_PAYABLE, r.getTotalNet())));
+    }
+
+    /** Net salaries paid: Dr 421 / Cr 530 Caisse or 512 Banque. CNAS and IRG are paid to their bodies later (manual entries). */
+    @EventListener
+    public void onPayrollPaid(PayrollPaid event) {
+        PayrollRun r = payrollRuns.findById(event.runId()).orElseThrow();
+        String account = r.getPaymentMethod() == SalaryPaymentMethod.CASH ? CASH : BANK;
+        journal.post(LocalDate.now(), "Salaries paid " + r.getPeriod() + " (" + r.getNumber() + ")", "PAYROLL_PAYMENT", r.getId(), List.of(
+                debit(STAFF_PAYABLE, r.getTotalNet()),
+                credit(account, r.getTotalNet())));
     }
 
     private static BigDecimal costOf(List<SalesOrderLine> lines) {
